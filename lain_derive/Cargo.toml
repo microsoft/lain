@@ -6,6 +6,7 @@ authors = ["Lander Brandt <labrandt@microsoft.com>"]
 edition = "2018"
 homepage = "https://github.com/microsoft/lain"
 keywords = ["lain", "fuzzer", "mutator", "mutate", "mutation"]
+readme = "crates-io.md"
 license = "MIT"
 include = ["Cargo.toml", "src/**/*.rs",  "README.md", "LICENSE", "crates-io.md"]
 

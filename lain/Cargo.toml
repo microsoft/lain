@@ -5,6 +5,8 @@ version = "0.1.0"
 authors = ["Lander Brandt <labrandt@microsoft.com>"]
 edition = "2018"
 homepage = "https://github.com/microsoft/lain"
+documentation = "https://docs.serde.rs/lain/"
+readme = "crates-io.md"
 keywords = ["lain", "fuzzer", "mutator", "mutate", "mutation"]
 license = "MIT"
 
