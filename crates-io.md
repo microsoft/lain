@@ -20,7 +20,7 @@ Add the following to your Cargo.toml:
 
 ```toml
 [dependencies]
-lain = "0.1.0"
+lain = "0.1"
 ```
 
 ### Example Usage
