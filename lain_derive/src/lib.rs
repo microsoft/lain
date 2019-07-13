@@ -48,7 +48,7 @@ pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     tokens
 }
 
-/// Implements [lain::BinarySerialize] on the given struct/enum.
+/// Implements [lain::traits::BinarySerialize] on the given struct/enum.
 /// The byteorder of fields can be overridden with `#[byteorder(big)]` or
 /// `#[byteorder(little)]`
 ///
@@ -272,6 +272,9 @@ pub fn post_fuzzer_iteration(input: proc_macro::TokenStream) -> proc_macro::Toke
     proc_macro::TokenStream::from(expanded)
 }
 
+/// Automatically implements [trait@lain::traits::FixupChildren] for the given type. Custom implementations
+/// of [trait@lain::traits::Fixup] should call this function at the end of the fixup operations to ensure that
+/// all child fields are properly handled.
 #[proc_macro_derive(FixupChildren)]
 pub fn post_mutation(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -296,6 +299,7 @@ pub fn post_mutation(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     proc_macro::TokenStream::from(expanded)
 }
 
+/// A "catch-all" derive for NewFuzzed, Mutatable, PostFuzzerIteration, FixupChildren, and VariableObjectSize
 #[proc_macro_derive(FuzzerObject, attributes(fuzzer, bitfield, weight))]
 pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut base_token_stream = TokenStream::new();
@@ -311,21 +315,25 @@ pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     proc_macro::TokenStream::from(base_token_stream)
 }
 
+/// Implements `ToPrimitive<u8>` for the given enum.
 #[proc_macro_derive(ToPrimitiveU8)]
 pub fn to_primitive_u8(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_primitive_of_type(input, quote! {u8})
 }
 
+/// Implements `ToPrimitive<u16>` for the given enum.
 #[proc_macro_derive(ToPrimitiveU16)]
 pub fn to_primitive_u16(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_primitive_of_type(input, quote! {u16})
 }
 
+/// Implements `ToPrimitive<u32>` for the given enum.
 #[proc_macro_derive(ToPrimitiveU32)]
 pub fn to_primitive_u32(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_primitive_of_type(input, quote! {u32})
 }
 
+/// Implements `ToPrimitive<u64>` for the given enum.
 #[proc_macro_derive(ToPrimitiveU64)]
 pub fn to_primitive_u64(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_primitive_of_type(input, quote! {u64})

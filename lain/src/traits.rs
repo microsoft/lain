@@ -142,7 +142,7 @@ where
 /// contain dynamic-size fields, the quality of fuzzing may be slightly worse. This is because
 /// calling [NewFuzzed::new_fuzzed] will, if a variable-sized field is in the data structure,
 /// initialize its fields in a random order. If you are working with size constraints, it may be useful
-/// to #[derive(VariableSizeObject)] to get random field initialization.
+/// to `#[derive(VariableSizeObject)]` to get random field initialization.
 pub trait VariableSizeObject {
     fn is_variable_size() -> bool;
 }
