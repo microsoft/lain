@@ -6,6 +6,7 @@ edition = "2018"
 homepage = "https://github.com/microsoft/lain"
 keywords = ["lain", "fuzzer", "mutator", "mutate", "mutation"]
 license = "MIT"
+include = ["Cargo.toml", "src/**/*.rs",  "README.md", "LICENSE", "crates-io.md"]
 
 [dependencies]
 syn = { version = "0.15", features = ["extra-traits"] }
