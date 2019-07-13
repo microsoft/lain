@@ -1,0 +1,28 @@
+[package]
+name = "testsuite"
+version = "0.1.0"
+authors = ["Lander Brandt <labrandt@microsoft.com>"]
+edition = "2018"
+
+[dependencies]
+lain = { version = "0.1", path = "../lain" }
+
+[dev-dependencies]
+
+# this brings in a LOT of dependencies (like 110)... maybe avoid
+[dev-dependencies.criterion]
+version = "0.2"
+# disabling default features brings packages down from 120 to 108 (at the time of writing)
+# wtf man
+default-features = false
+
+[[bench]]
+name = "benchmark_serialization_throughput"
+harness = false
+
+[[bench]]
+name = "benchmark_generating_fuzzed_struct"
+harness = false
+
+[profile.release]
+debug = true

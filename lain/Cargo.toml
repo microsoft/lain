@@ -1,0 +1,25 @@
+[package]
+name = "lain"
+version = "0.1.0"
+authors = ["Lander Brandt <labrandt@microsoft.com>"]
+edition = "2018"
+homepage = "https://github.com/microsoft/lain"
+keywords = ["lain", "fuzzer", "mutator", "mutate", "mutation"]
+license = "MIT"
+
+[dependencies]
+rand = { version = "0.7", features = ["small_rng"] }
+byteorder = "1.2"
+mashup = "0.1"
+lain_derive = { version = "0.1", path = "../lain_derive" }
+log = "0.4"
+num-traits = "0.2"
+num-derive = "0.2"
+num = "0.2"
+lazy_static = "1.2"
+serde = { version = "1.0" , optional = true, features = ["derive"] }
+field-offset = "0.1.1"
+
+[features]
+default_features = []
+serde_support = ["serde"]

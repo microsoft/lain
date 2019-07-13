@@ -1,0 +1,19 @@
+[package]
+name = "lain_derive"
+version = "0.1.0"
+authors = ["Lander Brandt <labrandt@microsoft.com>"]
+edition = "2018"
+homepage = "https://github.com/microsoft/lain"
+keywords = ["lain", "fuzzer", "mutator", "mutate", "mutation"]
+license = "MIT"
+
+[dependencies]
+syn = { version = "0.15", features = ["extra-traits"] }
+quote = "0.6"
+proc-macro2 = "0.4"
+mashup = "0.1"
+byteorder = "1.2"
+log = "0.4"
+
+[lib]
+proc-macro = true

@@ -1,0 +1,9 @@
+[workspace]
+members = [
+	'testsuite',
+	'lain',
+	'lain_derive',
+]
+
+[profile.release]
+debug = true

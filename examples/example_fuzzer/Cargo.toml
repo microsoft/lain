@@ -1,0 +1,9 @@
+[package]
+name = "example_fuzzer"
+version = "0.1.0"
+authors = ["Lander Brandt <labrandt@microsoft.com>"]
+edition = "2018"
+
+[dependencies]
+lain = { version = "0.1", path = "../../lain" }
+ctrlc = "3.1"
