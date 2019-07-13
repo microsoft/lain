@@ -6,12 +6,13 @@ nightly Rust build is required for the specialization feature.
 Please consider this crate in "beta" and subject to breaking changes for minor version releases for pre-1.0.
 
 ![crates.io](https://img.shields.io/crates/v/lain.svg)
+![docs.rs](https://docs.rs/lain/badge.svg)
 
 ### Documentation
 
 Please refer to [the wiki](https://github.com/microsoft/lain/wiki) for a high-level overview.
 
-For API documentation: ![docs.rs documentation](https://docs.rs/lain/badge.svg).
+For API documentation: https://docs.rs/lain
 
 ### Installation
 
