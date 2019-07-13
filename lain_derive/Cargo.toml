@@ -1,5 +1,6 @@
 [package]
 name = "lain_derive"
+description = "Derive macros for usage with lain"
 version = "0.1.0"
 authors = ["Lander Brandt <labrandt@microsoft.com>"]
 edition = "2018"
