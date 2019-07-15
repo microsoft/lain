@@ -48,7 +48,7 @@ name = "example_fuzzer"
 version = "0.1.0"
 dependencies = [
  "ctrlc 3.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "lain 0.1.0",
+ "lain 0.1.2",
 ]
 
 [[package]]
@@ -67,11 +67,11 @@ dependencies = [
 
 [[package]]
 name = "lain"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "field-offset 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lain_derive 0.1.0",
+ "lain_derive 0.1.2",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "mashup 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -83,7 +83,7 @@ dependencies = [
 
 [[package]]
 name = "lain_derive"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
