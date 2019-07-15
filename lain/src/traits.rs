@@ -3,12 +3,12 @@ use crate::mutator::Mutator;
 use crate::rand::Rng;
 
 use crate::types::*;
-use byteorder::{ByteOrder};
+use byteorder::ByteOrder;
 use num_traits::Bounded;
 use std::fmt::Debug;
 use std::io::Write;
 
-use std::ops::{Deref};
+use std::ops::Deref;
 
 /// Represents a data typethat can be pushed to a byte buffer in a constant,
 /// predetermined way.
@@ -58,7 +58,7 @@ impl<T> FixupChildren for T {
 
 /// Trait used for performing fixups of a data structure when generating a new
 /// struct using [NewFuzzed].
-/// 
+///
 /// This trait is useful when you may have dependent data types, such as a "command" struct
 /// that needs to correspond with an enum.
 pub trait Fixup: FixupChildren {
@@ -87,7 +87,7 @@ pub trait ToPrimitive<T> {
 }
 
 /// Trait used for signaling the result of the previous fuzzer iteration.
-/// 
+///
 /// This may be useful in scenarios where you need to change some state that's persisted and used
 /// between fuzzer iterations.
 pub trait PostFuzzerIterationBase {
@@ -137,7 +137,7 @@ where
 }
 
 /// Trait for objects to derive in order to specify whether or not they are variable-size.
-/// 
+///
 /// This trait does not strictly need to be implemented, however if your data structures
 /// contain dynamic-size fields, the quality of fuzzing may be slightly worse. This is because
 /// calling [NewFuzzed::new_fuzzed] will, if a variable-sized field is in the data structure,

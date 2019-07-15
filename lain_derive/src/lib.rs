@@ -21,9 +21,9 @@ mod utils;
 use crate::fuzzerobject::*;
 use crate::new_fuzzed::*;
 use crate::serialize::binary_serialize_helper;
-use syn::{Fields, Data};
-use syn::spanned::Spanned;
 use quote::quote_spanned;
+use syn::spanned::Spanned;
+use syn::{Data, Fields};
 
 /// Implements [rand::distributions::Standard] for enums that derive this trait.
 /// This will allow you to use `rand::gen()` to randomly select an enum value.
@@ -163,7 +163,7 @@ pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 }
 
 /// Automatically implements [trait@lain::traits::VariableSizeObject]
-/// 
+///
 /// # Example
 ///
 /// ```compile_fail
@@ -202,21 +202,21 @@ pub fn variable_size_object_helper(input: proc_macro::TokenStream) -> proc_macro
             }
 
             imp = if simple_variants {
-                quote!{false}
+                quote! {false}
             } else {
-                quote!{true}
+                quote! {true}
             };
         }
         Data::Struct(ref data) => {
             if let Fields::Named(ref fields) = data.fields {
                 if fields.named.len() == 0 {
-                    imp = quote!{false};
+                    imp = quote! {false};
                 } else {
-                    let mut tokens = quote!{false};
+                    let mut tokens = quote! {false};
 
                     for field in fields.named.iter() {
                         let ty = &field.ty;
-                        tokens.extend(quote_spanned!{ field.span() =>
+                        tokens.extend(quote_spanned! { field.span() =>
                             || <#ty>::is_variable_size()
                         });
                     }
@@ -307,7 +307,9 @@ pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     base_token_stream.extend(TokenStream::from(mutatable_helper(input.clone())));
     base_token_stream.extend(TokenStream::from(post_fuzzer_iteration(input.clone())));
     base_token_stream.extend(TokenStream::from(post_mutation(input.clone())));
-    base_token_stream.extend(TokenStream::from(variable_size_object_helper(input.clone())));
+    base_token_stream.extend(TokenStream::from(variable_size_object_helper(
+        input.clone(),
+    )));
 
     // Uncomment to dump the AST
     debug!("{}", base_token_stream);

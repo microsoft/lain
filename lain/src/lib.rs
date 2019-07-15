@@ -1,21 +1,21 @@
 //! This crate provides functionality one may find useful while developing a fuzzer. A recent
 //! nightly Rust build is required for the specialization feature.
-//! 
+//!
 //! Please consider this crate in "beta" and subject to breaking changes for minor version releases for pre-1.0.
-//! 
+//!
 //! [![crates.io](https://img.shields.io/crates/v/lain.svg)](https://crates.io/crates/lain)
 //! [![docs.rs](https://docs.rs/lain/badge.svg)](https://docs.rs/lain)
-//! 
+//!
 //! ## Documentation
-//! 
+//!
 //! Please refer to [the wiki](https://github.com/microsoft/lain/wiki) for a high-level overview.
-//! 
+//!
 //! For API documentation: https://docs.rs/lain
-//! 
+//!
 //! ## Installation
-//! 
+//!
 //! Add the following to your Cargo.toml:
-//! 
+//!
 //! ```toml
 //! [dependencies]
 //! lain = "0.1"
@@ -86,7 +86,6 @@
 //! [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or
 //! comments.
 
-
 #![feature(specialization)]
 #![feature(const_fn)]
 
@@ -120,9 +119,9 @@ pub mod driver;
 #[doc(hidden)]
 pub mod mutatable;
 pub mod mutator;
-pub mod prelude;
 #[doc(hidden)]
 pub mod new_fuzzed;
+pub mod prelude;
 pub mod traits;
 pub mod types;
 

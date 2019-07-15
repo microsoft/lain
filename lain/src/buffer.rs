@@ -51,10 +51,7 @@ where
             return 0;
         }
 
-        let size = self
-            .iter()
-            .map(SerializedSize::serialized_size)
-            .sum();
+        let size = self.iter().map(SerializedSize::serialized_size).sum();
 
         trace!("size is 0x{:02X}", size);
 

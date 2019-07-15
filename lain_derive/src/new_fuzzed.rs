@@ -17,7 +17,6 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
 
     let method_body: TokenStream;
 
-
     match input.data {
         Data::Enum(ref data) => {
             /// This struct represents an enum variant with parsed attributes
@@ -211,7 +210,10 @@ fn get_weighted_metadata(attr: &syn::Attribute) -> Option<Vec<syn::NestedMeta>> 
     get_attribute_metadata("weight", &attr)
 }
 
-fn gen_struct_new_fuzzed_impl(name: &syn::Ident, fields: &[FuzzerObjectStructField]) -> TokenStream {
+fn gen_struct_new_fuzzed_impl(
+    name: &syn::Ident,
+    fields: &[FuzzerObjectStructField],
+) -> TokenStream {
     let mut generate_arms = vec![];
     let mut generate_linear = vec![];
 
@@ -227,9 +229,10 @@ fn gen_struct_new_fuzzed_impl(name: &syn::Ident, fields: &[FuzzerObjectStructFie
             field_mutation_tokens.extend(quote_spanned! { span =>
                 let value = <#ty>::default();
             });
-        } // If the user supplied an initializer, use that
+        }
+        // If the user supplied an initializer, use that
         else if let Some(ref initializer) = f.user_initializer {
-            field_mutation_tokens.extend(quote_spanned!{ span =>
+            field_mutation_tokens.extend(quote_spanned! { span =>
                 let value = #initializer;
             });
         } else {
@@ -239,8 +242,16 @@ fn gen_struct_new_fuzzed_impl(name: &syn::Ident, fields: &[FuzzerObjectStructFie
             let weighted = &f.weighted;
 
             let default_constraints = if f.min.is_some() || f.max.is_some() {
-                let min = f.min.as_ref().map(|v| quote!{Some(#v)}).unwrap_or_else(|| quote!{None});
-                let max = f.max.as_ref().map(|v| quote!{Some(#v)}).unwrap_or_else(|| quote!{None});
+                let min = f
+                    .min
+                    .as_ref()
+                    .map(|v| quote! {Some(#v)})
+                    .unwrap_or_else(|| quote! {None});
+                let max = f
+                    .max
+                    .as_ref()
+                    .map(|v| quote! {Some(#v)})
+                    .unwrap_or_else(|| quote! {None});
 
                 quote_spanned! { span =>
                     let constraints: Option<::lain::types::Constraints<<#ty as ::lain::traits::NewFuzzed>::RangeType>> = Some(Constraints {
@@ -263,12 +274,11 @@ fn gen_struct_new_fuzzed_impl(name: &syn::Ident, fields: &[FuzzerObjectStructFie
                 }
             };
 
-            field_mutation_tokens.extend(quote_spanned!{ span =>
+            field_mutation_tokens.extend(quote_spanned! { span =>
                 #default_constraints
                 let value = <#ty>::new_fuzzed(mutator, constraints.as_ref());
             });
         }
-
 
         field_mutation_tokens.extend(quote! {
             if let Some(ref mut max_size) = max_size {

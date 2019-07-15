@@ -191,9 +191,9 @@ impl<T: 'static + Send + Sync> FuzzerDriver<T> {
 }
 
 /// Kicks off a fuzzing job using the driver and callback function.
-/// 
+///
 /// The callback should look something like:
-/// 
+///
 /// ```compile_fail
 /// fn iteration_routine<R: Rng>(mutator: &mut Mutator<R>, thread_context: &mut FuzzerThreadContext, _global_context: Option<Arc<RwLock<GlobalContext>>>) -> Result<(), ()>
 /// ```
@@ -242,7 +242,9 @@ pub fn start_fuzzer<F: 'static, C: 'static, T: 'static + Send + Sync>(
 
                     mutator.begin_new_iteration();
 
-                    if let Err(_) = (callback)(&mut mutator, &mut context, thread_driver.global_context()) {
+                    if let Err(_) =
+                        (callback)(&mut mutator, &mut context, thread_driver.global_context())
+                    {
                         thread_driver
                             .num_failed_iterations
                             .fetch_add(1, Ordering::SeqCst);

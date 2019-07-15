@@ -20,7 +20,11 @@ struct BinarySerializeTokens {
 }
 
 impl BinarySerializeTokens {
-    fn new(serialize: TokenStream, serialized_size: Option<TokenStream>, min_nonzero_elements_size: Option<TokenStream>) -> BinarySerializeTokens {
+    fn new(
+        serialize: TokenStream,
+        serialized_size: Option<TokenStream>,
+        min_nonzero_elements_size: Option<TokenStream>,
+    ) -> BinarySerializeTokens {
         BinarySerializeTokens {
             serialize,
             serialized_size,
@@ -145,7 +149,7 @@ fn serialize_fields(
                             let ident = TokenStream::from_str(&format!("field_{}", i)).unwrap();
 
                             total_size.extend(quote! {total_size += #ident.serialized_size();});
-                            variant_sizes.push(quote!{std::mem::size_of::<#field_ty>()});
+                            variant_sizes.push(quote! {std::mem::size_of::<#field_ty>()});
 
                             serialized_fields.extend(quote! {
                                 #ident.binary_serialize::<_, E>(buffer);
@@ -153,7 +157,7 @@ fn serialize_fields(
 
                             parameters.extend(quote! {ref #ident,});
                         }
-                        min_sizes.push(quote!{0#(+#variant_sizes)*});
+                        min_sizes.push(quote! {0#(+#variant_sizes)*});
 
                         let serialized_size = if use_inner_member_serialized_size {
                             quote! {
@@ -231,9 +235,9 @@ fn serialize_fields(
                 }
             };
 
-            let sizes = quote!{*[#(#min_sizes,)*].iter().min_by(|a, b| a.cmp(b)).unwrap()};
+            let sizes = quote! {*[#(#min_sizes,)*].iter().min_by(|a, b| a.cmp(b)).unwrap()};
 
-           BinarySerializeTokens::new(serialize_body, Some(serialized_size_body), Some(sizes))
+            BinarySerializeTokens::new(serialize_body, Some(serialized_size_body), Some(sizes))
         }
         Data::Struct(ref data) => {
             match data.fields {
@@ -412,7 +416,7 @@ fn serialize_fields(
                         }
 
                         if let Some(ref min_size) = item.min_nonzero_elements_size {
-                            min_object_size.extend(quote!{
+                            min_object_size.extend(quote! {
                                 + #min_size
                             });
                         }
@@ -427,7 +431,11 @@ fn serialize_fields(
                         });
                     }
 
-                    BinarySerializeTokens::new(serialize_text, Some(object_size), Some(min_object_size))
+                    BinarySerializeTokens::new(
+                        serialize_text,
+                        Some(object_size),
+                        Some(min_object_size),
+                    )
                 }
                 _ => {
                     panic!("BinarySerializer only supports named fields");

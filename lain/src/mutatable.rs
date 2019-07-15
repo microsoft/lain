@@ -1,12 +1,12 @@
 use crate::mutator::Mutator;
-use crate::rand::Rng;
 use crate::rand::seq::index;
+use crate::rand::Rng;
 use crate::traits::*;
 use crate::types::*;
 
 use num_traits::{Bounded, NumCast};
-use std::ops::BitXor;
 use num_traits::{WrappingAdd, WrappingSub};
+use std::ops::BitXor;
 
 impl<T> Mutatable for Vec<T>
 where
@@ -41,7 +41,14 @@ impl Mutatable for bool {
 impl<T, I> Mutatable for UnsafeEnum<T, I>
 where
     T: ToPrimitive<I>,
-    I: BitXor<Output = I> + NumCast + Bounded + Copy + DangerousNumber<I> + std::fmt::Display + WrappingAdd + WrappingSub,
+    I: BitXor<Output = I>
+        + NumCast
+        + Bounded
+        + Copy
+        + DangerousNumber<I>
+        + std::fmt::Display
+        + WrappingAdd
+        + WrappingSub,
 {
     fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
         if let UnsafeEnum::Valid(ref value) = *self {
@@ -100,7 +107,11 @@ impl<T> Mutatable for [T; 0]
 where
     T: Mutatable,
 {
-    fn mutate<R: Rng>(&mut self, _mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        _mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<u8>>,
+    ) {
         // nop
     }
 }

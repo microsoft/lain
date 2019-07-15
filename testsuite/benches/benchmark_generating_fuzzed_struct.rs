@@ -5,9 +5,8 @@ extern crate lain;
 
 use criterion::*;
 
-use lain::rand::SeedableRng;
 use lain::prelude::*;
-
+use lain::rand::SeedableRng;
 
 #[derive(Debug, Default, Clone, FuzzerObject, BinarySerialize)]
 pub struct NestedStruct {
@@ -48,10 +47,7 @@ pub struct TestStruct {
 
 fn bench_new_fuzzed_1000(c: &mut Criterion) {
     let struct_size = std::mem::size_of::<NestedStruct>();
-    let function_name = format!(
-        "bench_new_fuzzed struct of size 0x{:X}",
-        struct_size
-    );
+    let function_name = format!("bench_new_fuzzed struct of size 0x{:X}", struct_size);
 
     c.bench(
         function_name.as_ref(),
@@ -68,10 +64,7 @@ fn bench_new_fuzzed_1000(c: &mut Criterion) {
 
 fn bench_in_place_mutation(c: &mut Criterion) {
     let struct_size = std::mem::size_of::<NestedStruct>();
-    let function_name = format!(
-        "bench_in_place_mutation struct of size 0x{:X}",
-        struct_size
-    );
+    let function_name = format!("bench_in_place_mutation struct of size 0x{:X}", struct_size);
 
     c.bench(
         function_name.as_ref(),
@@ -92,10 +85,7 @@ fn bench_in_place_mutation(c: &mut Criterion) {
 
 fn bench_default_1000(c: &mut Criterion) {
     let struct_size = std::mem::size_of::<NestedStruct>();
-    let function_name = format!(
-        "bench_default_1000 struct of size 0x{:X}",
-        struct_size
-    );
+    let function_name = format!("bench_default_1000 struct of size 0x{:X}", struct_size);
 
     c.bench(
         function_name.as_ref(),
@@ -109,5 +99,10 @@ fn bench_default_1000(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, bench_new_fuzzed_1000, bench_default_1000, bench_in_place_mutation);
+criterion_group!(
+    benches,
+    bench_new_fuzzed_1000,
+    bench_default_1000,
+    bench_in_place_mutation
+);
 criterion_main!(benches);

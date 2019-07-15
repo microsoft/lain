@@ -3,8 +3,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
 
 use syn::spanned::Spanned;
-use syn::{Meta, NestedMeta};
 use syn::{IntSuffix, LitInt};
+use syn::{Meta, NestedMeta};
 
 use std::str::FromStr;
 

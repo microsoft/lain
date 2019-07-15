@@ -1,13 +1,13 @@
 use crate::mutator::Mutator;
 
-use crate::rand::Rng;
 use crate::rand::seq::SliceRandom;
+use crate::rand::Rng;
 use crate::traits::*;
 use crate::types::*;
 use num_traits::Bounded;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
-use std::{cmp, char};
+use std::{char, cmp};
 
 impl<T> NewFuzzed for Vec<T>
 where
@@ -41,7 +41,9 @@ where
                         min = 0;
                     }
 
-                    if constraints.max.is_some() && mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX) {
+                    if constraints.max.is_some()
+                        && mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX)
+                    {
                         // we just hope this doesn't overflow.
                         max = constraints.max.unwrap() * 2;
                     }
@@ -51,7 +53,6 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-
                     max = cmp::min(max, max_size / T::min_nonzero_elements_size());
                 }
             }
@@ -121,7 +122,9 @@ where
                         min = 0;
                     }
 
-                    if constraints.max.is_some() && mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX) {
+                    if constraints.max.is_some()
+                        && mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX)
+                    {
                         // we just hope this doesn't overflow.
                         max = constraints.max.unwrap() * 2;
                     }
@@ -131,7 +134,6 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-
                     max = cmp::min(max, max_size / T::min_nonzero_elements_size());
                 }
             }
@@ -403,9 +405,7 @@ impl NewFuzzed for Utf8Char {
 
         let mode_chance = mutator.gen_range(0, 100);
         match mode_chance {
-            0..=49 => {
-                Utf8Char(mutator.gen_range(0, 0xB0) as u8 as char)
-            }
+            0..=49 => Utf8Char(mutator.gen_range(0, 0xB0) as u8 as char),
             50..=59 => {
                 loop {
                     if let Some(c) = char::from_u32(mutator.gen_range(0, 0x10000)) {
@@ -419,14 +419,14 @@ impl NewFuzzed for Utf8Char {
             60..=84 => {
                 // Characters often used in programming languages
                 let c = [
-                    ' ', ' ', ' ',
-                    '\t',
-                    '\n',
-                    '~', '`', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
-                    '_', '-', '=', '+','[', ']', '{', '}', ':', ';', '\'', '"',
-                    '\\', '|',',','<','>','.','/','?',
-                    '0', '1','2','3','4','5','6','7','8','9',
-                ].choose(&mut mutator.rng).unwrap().to_owned();
+                    ' ', ' ', ' ', '\t', '\n', '~', '`', '!', '@', '#', '$', '%', '^', '&', '*',
+                    '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ':', ';', '\'', '"', '\\',
+                    '|', ',', '<', '>', '.', '/', '?', '0', '1', '2', '3', '4', '5', '6', '7', '8',
+                    '9',
+                ]
+                .choose(&mut mutator.rng)
+                .unwrap()
+                .to_owned();
 
                 Utf8Char(c)
             }
@@ -435,18 +435,46 @@ impl NewFuzzed for Utf8Char {
                 let c = [
                     '\u{0149}', // a deprecated character
                     '\u{fff0}', // some of "Other, format" category:
-                    '\u{fff1}','\u{fff2}','\u{fff3}','\u{fff4}','\u{fff5}',
-                    '\u{fff6}','\u{fff7}','\u{fff8}','\u{fff9}','\u{fffA}',
-                    '\u{fffB}','\u{fffC}','\u{fffD}','\u{fffE}','\u{fffF}',
-                    '\u{0600}','\u{0601}','\u{0602}','\u{0603}',
-                    '\u{0604}','\u{0605}','\u{061C}',
-                    '\u{06DD}','\u{070F}','\u{180E}',
-                    '\u{110BD}', '\u{1D173}',
+                    '\u{fff1}',
+                    '\u{fff2}',
+                    '\u{fff3}',
+                    '\u{fff4}',
+                    '\u{fff5}',
+                    '\u{fff6}',
+                    '\u{fff7}',
+                    '\u{fff8}',
+                    '\u{fff9}',
+                    '\u{fffA}',
+                    '\u{fffB}',
+                    '\u{fffC}',
+                    '\u{fffD}',
+                    '\u{fffE}',
+                    '\u{fffF}',
+                    '\u{0600}',
+                    '\u{0601}',
+                    '\u{0602}',
+                    '\u{0603}',
+                    '\u{0604}',
+                    '\u{0605}',
+                    '\u{061C}',
+                    '\u{06DD}',
+                    '\u{070F}',
+                    '\u{180E}',
+                    '\u{110BD}',
+                    '\u{1D173}',
                     '\u{e0001}', // tag
-                    '\u{e0020}',//  tag space
-                    '\u{e000}', '\u{e001}', '\u{ef8ff}', // private use
-                    '\u{f0000}', '\u{ffffd}','\u{ffffe}', '\u{fffff}',
-                    '\u{100000}','\u{10FFFD}','\u{10FFFE}','\u{10FFFF}',
+                    '\u{e0020}', //  tag space
+                    '\u{e000}',
+                    '\u{e001}',
+                    '\u{ef8ff}', // private use
+                    '\u{f0000}',
+                    '\u{ffffd}',
+                    '\u{ffffe}',
+                    '\u{fffff}',
+                    '\u{100000}',
+                    '\u{10FFFD}',
+                    '\u{10FFFE}',
+                    '\u{10FFFF}',
                     // "Other, surrogate" characters are so that very special
                     // that they are not even allowed in safe Rust,
                     //so omitted here
@@ -454,7 +482,10 @@ impl NewFuzzed for Utf8Char {
                     '\u{1680}',
                     // other space characters are already covered by two next
                     // branches
-                ].choose(&mut mutator.rng).unwrap().to_owned();
+                ]
+                .choose(&mut mutator.rng)
+                .unwrap()
+                .to_owned();
 
                 Utf8Char(c)
             }
@@ -505,14 +536,14 @@ impl NewFuzzed for AsciiChar {
                     50..=99 => {
                         // Characters often used in programming languages
                         let c = [
-                            ' ', ' ', ' ',
-                            '\t',
-                            '\n',
-                            '~', '`', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
-                            '_', '-', '=', '+','[', ']', '{', '}', ':', ';', '\'', '"',
-                            '\\', '|',',','<','>','.','/','?',
-                            '0', '1','2','3','4','5','6','7','8','9',
-                        ].choose(&mut mutator.rng).unwrap().to_owned();
+                            ' ', ' ', ' ', '\t', '\n', '~', '`', '!', '@', '#', '$', '%', '^', '&',
+                            '*', '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ':', ';', '\'',
+                            '"', '\\', '|', ',', '<', '>', '.', '/', '?', '0', '1', '2', '3', '4',
+                            '5', '6', '7', '8', '9',
+                        ]
+                        .choose(&mut mutator.rng)
+                        .unwrap()
+                        .to_owned();
 
                         return AsciiChar(c);
                     }

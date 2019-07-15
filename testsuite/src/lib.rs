@@ -8,8 +8,8 @@ mod test {
     use lain::hexdump;
     use lain::prelude::*;
     use lain::rand;
-    use lain::rand::{Rng, SeedableRng};
     use lain::rand::rngs::SmallRng;
+    use lain::rand::{Rng, SeedableRng};
     use std::io::BufWriter;
 
     #[derive(Debug, NewFuzzed, Clone, BinarySerialize)]

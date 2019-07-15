@@ -133,7 +133,16 @@ impl<R: Rng> Mutator<R> {
     ///
     pub fn mutate_from_mutation_mode<T>(&mut self, mn: &mut T)
     where
-        T: BitXor<Output = T> + Add<Output = T> + Sub<Output = T> + WrappingAdd<Output = T> + WrappingSub<Output = T> + NumCast + Bounded + Copy + DangerousNumber<T> + std::fmt::Display,
+        T: BitXor<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + WrappingAdd<Output = T>
+            + WrappingSub<Output = T>
+            + NumCast
+            + Bounded
+            + Copy
+            + DangerousNumber<T>
+            + std::fmt::Display,
     {
         // info!("{:?}", self.mode());
         // info!("num is: {}", mn);
@@ -183,7 +192,7 @@ impl<R: Rng> Mutator<R> {
     /// - Swap between the different [MutatorMode]s. This will transition from walking bit flips to dangerous numbers, to havoc mode.
     /// - For each mode, determine if there are any any other substates to exhaust (e.g. more bits to flip, more dangerous numbers to select), and update
     /// the state accordingly for the next iteration. If no other substates exist, the hard [MutatorMode] state will move to the next enum variant. Before reaching
-   /// the [MutatorMode::Havoc] state, each subsequent mode will check if the last field has been mutated yet. If not, the state will reset to [MutatorMode::WalkingBitFlip]
+    /// the [MutatorMode::Havoc] state, each subsequent mode will check if the last field has been mutated yet. If not, the state will reset to [MutatorMode::WalkingBitFlip]
     /// and adjust the current member index being fuzzed.
     /// - Once all members have been fuzzed in all [MutatorMode]s, the mode is set to [MutatorMode::Havoc].
     pub fn next_mode<T: Bounded + NumCast + DangerousNumber<T>>(&mut self) {
@@ -237,10 +246,8 @@ impl<R: Rng> Mutator<R> {
     /// Mutates a number after randomly selecting a mutation strategy (see [MutatorOperation] for a list of strategies)
     /// If a min/max is specified then a new number in this range is chosen instead of performing
     /// a bit/arithmetic mutation
-    pub fn mutate<T>(
-        &mut self,
-        num: &mut T,
-    ) where
+    pub fn mutate<T>(&mut self, num: &mut T)
+    where
         T: BitXor<Output = T>
             + Add<Output = T>
             + Sub<Output = T>
@@ -533,7 +540,9 @@ impl<R: Rng> Mutator<R> {
             for _i in 0..self.gen_range(0, 2) {
                 let flag_num = self.gen_range(0, 3);
                 let flag = match flag_num {
-                    0 => MutatorFlags::FuzzUpToNFields(self.gen_range(1, self.corpus_state.target_total_fields + 1)),
+                    0 => MutatorFlags::FuzzUpToNFields(
+                        self.gen_range(1, self.corpus_state.target_total_fields + 1),
+                    ),
                     1 => MutatorFlags::ShouldAlwaysPerformPostMutation(self.gen_range(0, 2) != 0),
                     2 => MutatorFlags::AllChancesSucceedOrFail(self.gen_range(0, 2) != 0),
                     _ => unreachable!(),

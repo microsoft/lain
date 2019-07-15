@@ -1,7 +1,7 @@
 #[doc(no_inline)]
 pub use lain_derive::{
     BinarySerialize, FixupChildren, FuzzerObject, Mutatable, NewFuzzed, PostFuzzerIteration,
-    ToPrimitiveU16, ToPrimitiveU32, ToPrimitiveU64, ToPrimitiveU8, VariableSizeObject
+    ToPrimitiveU16, ToPrimitiveU32, ToPrimitiveU64, ToPrimitiveU8, VariableSizeObject,
 };
 
 #[doc(no_inline)]

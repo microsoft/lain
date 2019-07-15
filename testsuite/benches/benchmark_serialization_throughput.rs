@@ -7,9 +7,8 @@ extern crate lain;
 
 use criterion::*;
 
-use lain::byteorder::{BigEndian};
+use lain::byteorder::BigEndian;
 use lain::prelude::*;
-
 
 #[derive(Debug, Default, Clone, Mutatable, BinarySerialize)]
 pub struct NestedStruct {
