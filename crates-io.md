@@ -16,6 +16,8 @@ For API documentation: https://docs.rs/lain
 
 ### Installation
 
+Lain requires rust nightly builds for specialization support.
+
 Add the following to your Cargo.toml:
 
 ```toml
@@ -30,6 +32,7 @@ extern crate lain;
 
 use lain::prelude::*;
 use lain::rand;
+use lain::hexdump;
 
 #[derive(Debug, Mutatable, NewFuzzed, BinarySerialize)]
 struct MyStruct {
@@ -54,15 +57,24 @@ fn main() {
     let mut instance = MyStruct::new_fuzzed(&mut mutator, None);
 
     let mut serialized_data = Vec::with_capacity(instance.serialized_size());
-    instance.push_to_buffer::<_, BigEndian>(&mut serialized_data);
+    instance.binary_serialize::<_, BigEndian>(&mut serialized_data);
 
     println!("{:?}", instance);
+    println!("{}", hexdump());
 
     // perform small mutations on the instance
     instance.mutate(&mut mutator, None);
 
     println!("{:?}", instance);
 }
+
+// Output:
+//
+// MyStruct { field_1: 95, field_2: 5, field_3: 14, field_4: 8383, ignored_field: 0 }
+// hex representation:
+// ------00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+// 0000: 5F 75 00 00 20 BF 00 00 00 00 00 00 00 00         _u...¿........
+// MyStruct { field_1: 160, field_2: 5, field_3: 14, field_4: 8383, ignored_field: 0 }
 ```
 
 A complete example of a fuzzer and its target can be found in the [examples](examples/)
