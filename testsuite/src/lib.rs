@@ -662,6 +662,35 @@ mod test {
         println!("{:?}", ascii_str);
     }
 
+    #[test]
+    fn test_max_size_constraint_seems_to_work() {
+        #[derive(NewFuzzed, BinarySerialize)]
+        struct Foo {
+            a: u8,
+            b: u8,
+            c: Bar,
+        }
+
+        #[derive(NewFuzzed, BinarySerialize)]
+        struct Bar {
+            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            c: Vec<u8>,
+        }
+
+        #[derive(NewFuzzed, BinarySerialize)]
+        enum TestEnum {
+            Foo(Foo),
+            Bar(Bar),
+        }
+
+        let mut mutator = get_mutator();
+
+        for _i in 0..100 {
+            let f = TestEnum::new_fuzzed(&mut mutator, Some(&Constraints::new().max_size(5)));
+            assert!(f.serialized_size() <= 5);
+        }
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

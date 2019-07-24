@@ -102,7 +102,14 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                                 TokenStream::from_str(&format!("field_{}", i)).unwrap();
 
                             initializer.extend(quote! {
-                                let mut #identifier: #field_type = NewFuzzed::new_fuzzed(mutator, None);
+                                let mut #identifier: #field_type = if let Some(ref constraints) = constraints {
+                                    let mut new_constraints = Constraints::default();
+                                    new_constraints.max_size = constraints.max_size;
+
+                                    NewFuzzed::new_fuzzed(mutator, Some(&new_constraints))
+                                } else {
+                                    NewFuzzed::new_fuzzed(mutator, None)
+                                };
                             });
 
                             parameters.extend(quote! {#identifier,});
@@ -117,7 +124,12 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                         variant_meta.initializer = quote! {
                             #index => {
                                 #initializer
-                                return #full_ident(#parameters);
+                                let mut result = #full_ident(#parameters);
+                                if mutator.should_fixup() {
+                                    result.fixup(mutator);
+                                }
+
+                                return result;
                             },
                         };
                     }
