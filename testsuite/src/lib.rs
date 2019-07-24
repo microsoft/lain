@@ -691,6 +691,39 @@ mod test {
         }
     }
 
+    #[test]
+    fn max_size_constraint_seems_to_work_with_mutation() {
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        struct Foo {
+            a: u8,
+            b: u8,
+            c: Bar,
+        }
+
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        struct Bar {
+            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            c: Vec<u8>,
+        }
+
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        enum TestEnum {
+            Foo(Foo),
+            Bar(Bar),
+        }
+
+        let mut mutator = get_mutator();
+        let mut constraints = Constraints::new();
+        constraints.max_size(5);
+
+        let mut instance = TestEnum::new_fuzzed(&mut mutator, Some(&constraints));
+
+        for _i in 0..100 {
+            instance.mutate(&mut mutator, Some(&constraints));
+            assert!(instance.serialized_size() <= 5);
+        }
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

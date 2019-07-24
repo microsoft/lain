@@ -275,14 +275,12 @@ fn gen_struct_new_fuzzed_impl(
                 }
             } else {
                 quote_spanned! { span =>
-                    let constraints = if let Some(ref max_size) = max_size {
-                        let mut constraints = ::lain::types::Constraints::default();
-                        constraints.max_size = Some(max_size.clone());
+                    let constraints = max_size.map_or(None, |max|{
+                        let mut c = ::lain::types::Constraints::new();
+                        c.max_size(max);
 
-                        Some(constraints)
-                    } else {
-                        None
-                    };
+                        Some(c)
+                    });
                 }
             };
 
@@ -296,6 +294,7 @@ fn gen_struct_new_fuzzed_impl(
         field_mutation_tokens.extend(quote! {
             if let Some(ref mut max_size) = max_size {
                 if value.serialized_size() > *max_size {
+                    warn!("Max size provided to {} object is likely smaller than min object size", #ident_string);
                     *max_size = 0;
                 } else {
                     *max_size -= value.serialized_size();
@@ -326,11 +325,7 @@ fn gen_struct_new_fuzzed_impl(
         use std::any::Any;
         use ::lain::rand::seq::index::sample;
 
-        let mut max_size = if let Some(ref mut constraints) = constraints {
-            constraints.max_size.clone()
-        } else {
-            None
-        };
+        let mut max_size = constraints.map_or(None, |c| c.max_size);
 
         let mut uninit_struct = std::mem::MaybeUninit::<#name>::uninit();
         let uninit_struct_ptr = uninit_struct.as_mut_ptr();
