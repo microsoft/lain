@@ -60,7 +60,7 @@ fn main() {
     instance.binary_serialize::<_, BigEndian>(&mut serialized_data);
 
     println!("{:?}", instance);
-    println!("{}", hexdump());
+    println!("hex representation:\n{}", hexdump(&serialized_data));
 
     // perform small mutations on the instance
     instance.mutate(&mut mutator, None);
