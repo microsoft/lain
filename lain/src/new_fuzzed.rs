@@ -74,7 +74,12 @@ where
         output = Vec::with_capacity(num_elements);
 
         for _i in 0..num_elements {
-            let element: T = T::new_fuzzed(mutator, None);
+            let element = if let Some(ref max_size) = max_size {
+                T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+            } else {
+                T::new_fuzzed(mutator, None)
+            };
+
             let element_serialized_size = element.serialized_size();
 
             if let Some(ref max_size) = max_size {
@@ -158,7 +163,12 @@ where
             mutator.gen_chance(crate::mutator::CHANCE_TO_REPEAT_ARRAY_VALUE);
 
         if should_reuse_array_item {
-            let element: T = T::new_fuzzed(mutator, None);
+            let element: T = if let Some(ref max_size) = max_size {
+                T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+            } else {
+                T::new_fuzzed(mutator, None)
+            };
+
             let element_serialized_size = element.serialized_size();
 
             for _i in 0..num_elements {
@@ -174,7 +184,12 @@ where
             }
         } else {
             for _i in 0..num_elements {
-                let element: T = T::new_fuzzed(mutator, None);
+                let element: T = if let Some(ref max_size) = max_size {
+                    T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+                } else {
+                    T::new_fuzzed(mutator, None)
+                };
+
                 let element_serialized_size = element.serialized_size();
 
                 if let Some(ref max_size) = max_size {
@@ -654,19 +669,26 @@ macro_rules! impl_new_fuzzed_array {
     ( $($size:expr),* ) => {
         $(
             impl<T> NewFuzzed for [T; $size]
-            where T: NewFuzzed + Clone {
+            where T: NewFuzzed + Clone + SerializedSize {
                 type RangeType = usize;
 
                 fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    if constraints.is_some() {
-                        warn!("Constraints passed to new_fuzzed on fixed-size array do nothing");
-                    }
+                    let mut max_size = if let Some(ref constraints) = constraints {
+                        constraints.max_size
+                    } else {
+                        None
+                    };
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
 
                     let mut idx = 0;
-                    let mut element: T = T::new_fuzzed(mutator, None);
+                    let mut element: T = if let Some(max_size) = max_size {
+                        T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
+                    } else {
+                        T::new_fuzzed(mutator, None)
+                    };
+
                     while idx < $size {
                         unsafe {
                             arr_ptr.add(idx).write(element.clone());
@@ -684,11 +706,23 @@ macro_rules! impl_new_fuzzed_array {
                                 }
 
                                 if $size - idx > 0 {
-                                    element = T::new_fuzzed(mutator, None);
+                                    element = if let Some(max_size) = max_size {
+                                        T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
+                                    } else {
+                                        T::new_fuzzed(mutator, None)
+                                    };
                                 }
                             } else {
-                                element = T::new_fuzzed(mutator, None);
+                                element = if let Some(max_size) = max_size {
+                                    T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
+                                } else {
+                                    T::new_fuzzed(mutator, None)
+                                };
                             }
+                        }
+
+                        if let Some(ref mut max_size) = max_size {
+                            *max_size -= element.serialized_size();
                         }
                     }
 
