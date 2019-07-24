@@ -1,4 +1,5 @@
 use num_traits::Bounded;
+use std::fmt::Debug;
 
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
@@ -108,7 +109,7 @@ pub(crate) struct AsciiChar(pub(crate) char);
 /// Data structure holding constraints that the [NewFuzzed::new_fuzzed][lain::traits::NewFuzzed::new_fuzzed] or
 /// [Mutatable::mutate][lain::traits::Mutatable::mutate] methods should try to respect.
 #[derive(Debug, Default, Clone)]
-pub struct Constraints<T: Bounded + std::fmt::Debug> {
+pub struct Constraints<T: Bounded + Debug> {
     /// The contextual "min" bound
     pub min: Option<T>,
     /// The contextual "max" bound (**not** inclusive)
@@ -117,6 +118,37 @@ pub struct Constraints<T: Bounded + std::fmt::Debug> {
     pub weighted: Weighted,
     /// The maximum size that the object has to work with
     pub max_size: Option<usize>,
+}
+
+impl<T: Bounded + Debug> Constraints<T> {
+    pub fn new() -> Constraints<T> {
+        Constraints {
+            min: None,
+            max: None,
+            weighted: Weighted::None,
+            max_size: None,
+        }
+    }
+
+    pub fn min<'a>(&'a mut self, min: T) -> &'a mut Constraints<T> {
+        self.min = Some(min);
+        self
+    }
+
+    pub fn max<'a>(&'a mut self, max: T) -> &'a mut Constraints<T> {
+        self.max = Some(max);
+        self
+    }
+
+    pub fn weighted<'a>(&'a mut self, weighted: Weighted) -> &'a mut Constraints<T> {
+        self.weighted = weighted;
+        self
+    }
+
+    pub fn max_size<'a>(&'a mut self, max_size: usize) -> &'a mut Constraints<T> {
+        self.max_size = Some(max_size);
+        self
+    }
 }
 
 /// Which direction to weigh ranges towards (min bound, upper bound, or none).
