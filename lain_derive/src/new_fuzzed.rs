@@ -292,9 +292,14 @@ fn gen_struct_new_fuzzed_impl(
             });
         }
 
+        let ident_string = ident.as_ref().unwrap().to_string();
         field_mutation_tokens.extend(quote! {
             if let Some(ref mut max_size) = max_size {
-                *max_size -= value.serialized_size();
+                if value.serialized_size() > *max_size {
+                    *max_size = 0;
+                } else {
+                    *max_size -= value.serialized_size();
+                }
             }
 
             let field_offset = ::lain::field_offset::offset_of!(#name => #ident).get_byte_offset() as isize;

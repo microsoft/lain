@@ -52,7 +52,7 @@ where
                 weight = constraints.weighted;
 
                 max_size = constraints.max_size;
-                if let Some(max_size) = constraints.max_size {
+                if let Some(max_size) = max_size {
                     max = cmp::min(max, max_size / T::min_nonzero_elements_size());
                 }
             }
@@ -673,11 +673,17 @@ macro_rules! impl_new_fuzzed_array {
                 type RangeType = usize;
 
                 fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    let mut max_size = if let Some(ref constraints) = constraints {
-                        constraints.max_size
-                    } else {
-                        None
-                    };
+                    let mut max_size: Option<usize> = None;
+
+                    if let Some(ref constraints) = constraints {
+                       if let Some(temp_max_size) = constraints.max_size {
+                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
+                                warn!("max size provided to array is smaller than the min size of array");
+                            }
+
+                            max_size = Some(temp_max_size / $size)
+                        }
+                    }
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
@@ -720,10 +726,6 @@ macro_rules! impl_new_fuzzed_array {
                                 };
                             }
                         }
-
-                        if let Some(ref mut max_size) = max_size {
-                            *max_size -= element.serialized_size();
-                        }
                     }
 
                     unsafe { output.assume_init() }
@@ -731,20 +733,33 @@ macro_rules! impl_new_fuzzed_array {
             }
 
             impl<T> NewFuzzed for [T; $size]
-            where T: NewFuzzed {
+            where T: NewFuzzed + SerializedSize {
                 default type RangeType = usize;
 
                 default fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    if constraints.is_some() {
-                        warn!("Constraints passed to new_fuzzed on fixed-size array do nothing");
+                    let mut max_size: Option<usize> = None;
+
+                    if let Some(ref constraints) = constraints {
+                       if let Some(temp_max_size) = constraints.max_size {
+                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
+                                warn!("max size provided to array is smaller than the min size of array");
+                            }
+
+                            max_size = Some(temp_max_size / $size)
+                        }
                     }
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
 
                     for i in 0..$size {
+                        let element = if let Some(max_size) = max_size {
+                            T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
+                        } else {
+                            T::new_fuzzed(mutator, None)
+                        };
                         unsafe {
-                            arr_ptr.offset(i).write(T::new_fuzzed(mutator, None));
+                            arr_ptr.offset(i).write(element);
                         }
                     }
 

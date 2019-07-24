@@ -101,7 +101,44 @@ macro_rules! impl_mutatable {
     }
 }
 
-impl_mutatable!(i64, u64, i32, u32, i16, u16, i8, u8);
+impl_mutatable!(u64, u32, u16, u8);
+
+impl Mutatable for i8 {
+    #[inline(always)]
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+        let mut val = *self as u8;
+        mutator.mutate_from_mutation_mode(&mut val);
+        *self = val as i8;
+    }
+}
+
+impl Mutatable for i16 {
+    #[inline(always)]
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+        let mut val = *self as u16;
+        mutator.mutate_from_mutation_mode(&mut val);
+        *self = val as i16;
+    }
+}
+
+impl Mutatable for i32 {
+    #[inline(always)]
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+        let mut val = *self as u32;
+        mutator.mutate_from_mutation_mode(&mut val);
+        *self = val as i32;
+    }
+}
+
+impl Mutatable for i64 {
+    #[inline(always)]
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+        let mut val = *self as u64;
+        mutator.mutate_from_mutation_mode(&mut val);
+        *self = val as i64;
+    }
+}
+
 
 impl<T> Mutatable for [T; 0]
 where

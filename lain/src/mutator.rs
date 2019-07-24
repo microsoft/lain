@@ -165,7 +165,7 @@ impl<R: Rng> Mutator<R> {
                             "about to panic with i={},idx={},res={},dest_size={}",
                             i,
                             current_idx,
-                            1u64 << (i + current_idx),
+                            1u64 << i,
                             std::mem::size_of::<T>()
                         );
                     }
