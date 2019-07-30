@@ -75,7 +75,10 @@ where
 
         for _i in 0..num_elements {
             let element = if let Some(ref max_size) = max_size {
-                T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+                T::new_fuzzed(
+                    mutator,
+                    Some(&Constraints::new().max_size(max_size - used_size)),
+                )
             } else {
                 T::new_fuzzed(mutator, None)
             };
@@ -164,7 +167,10 @@ where
 
         if should_reuse_array_item {
             let element: T = if let Some(ref max_size) = max_size {
-                T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+                T::new_fuzzed(
+                    mutator,
+                    Some(&Constraints::new().max_size(max_size - used_size)),
+                )
             } else {
                 T::new_fuzzed(mutator, None)
             };
@@ -185,7 +191,10 @@ where
         } else {
             for _i in 0..num_elements {
                 let element: T = if let Some(ref max_size) = max_size {
-                    T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size - used_size)))
+                    T::new_fuzzed(
+                        mutator,
+                        Some(&Constraints::new().max_size(max_size - used_size)),
+                    )
                 } else {
                     T::new_fuzzed(mutator, None)
                 };

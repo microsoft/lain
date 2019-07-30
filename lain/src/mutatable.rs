@@ -1,17 +1,17 @@
-use crate::NewFuzzed;
 use crate::mutator::{Mutator, MutatorMode};
 use crate::rand::seq::index;
 use crate::rand::Rng;
 use crate::traits::*;
 use crate::types::*;
+use crate::NewFuzzed;
 
 use num_traits::{Bounded, NumCast};
 use num_traits::{WrappingAdd, WrappingSub};
-use std::ops::BitXor;
 use std::cmp::min;
+use std::ops::BitXor;
 
 // we'll shrink by a factor of 1/4, 1/2, 3/4, or down to [0, 8] bytes
-#[derive(Copy, Clone,NewFuzzed, PartialEq)]
+#[derive(Copy, Clone, NewFuzzed, PartialEq)]
 enum VecResizeCount {
     Quarter,
     Half,
@@ -35,27 +35,21 @@ enum VecResizeType {
 /// Grows a `Vec`.
 /// This will randomly select to grow by a factor of 1/4, 1/2, 3/4, or a fixed number of bytes
 /// in the range of [1, 8]. Elements may be added randomly to the beginning or end of the the vec
-fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>, mut max_size: Option<usize>) {
+fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
+    vec: &mut Vec<T>,
+    mutator: &mut Mutator<R>,
+    mut max_size: Option<usize>,
+) {
     let resize_count = VecResizeCount::new_fuzzed(mutator, None);
     let mut num_elements = if vec.len() == 0 {
         mutator.gen_range(1, 9)
     } else {
         match resize_count {
-            VecResizeCount::Quarter => {
-                vec.len() / 4
-            }
-            VecResizeCount::Half => {
-                vec.len() / 2
-            }
-            VecResizeCount::ThreeQuarters => {
-                vec.len() - (vec.len() / 4)
-            }
-            VecResizeCount::FixedBytes => {
-                mutator.gen_range(1, 9)
-            }
-            VecResizeCount::AllBytes => {
-                vec.len()
-            }
+            VecResizeCount::Quarter => vec.len() / 4,
+            VecResizeCount::Half => vec.len() / 2,
+            VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
+            VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
+            VecResizeCount::AllBytes => vec.len(),
         }
     };
 
@@ -136,21 +130,11 @@ fn shrink_vec<T, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>) {
 
     let resize_count = VecResizeCount::new_fuzzed(mutator, None);
     let mut num_elements = match resize_count {
-        VecResizeCount::Quarter => {
-            vec.len() / 4
-        }
-        VecResizeCount::Half => {
-            vec.len() / 2
-        }
-        VecResizeCount::ThreeQuarters => {
-            vec.len() - (vec.len() / 4)
-        }
-        VecResizeCount::FixedBytes => {
-            mutator.gen_range(1, 9)
-        }
-        VecResizeCount::AllBytes => {
-            vec.len()
-        }
+        VecResizeCount::Quarter => vec.len() / 4,
+        VecResizeCount::Half => vec.len() / 2,
+        VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
+        VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
+        VecResizeCount::AllBytes => vec.len(),
     };
 
     if num_elements == 0 {
@@ -168,14 +152,14 @@ fn shrink_vec<T, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>) {
             vec.drain(0..num_elements);
         }
         VecResizeDirection::FromEnd => {
-            vec.drain(vec.len()-num_elements..);
+            vec.drain(vec.len() - num_elements..);
         }
     }
 }
 
 impl<T> Mutatable for Vec<T>
 where
-    T: Mutatable, 
+    T: Mutatable,
 {
     default fn mutate<R: rand::Rng>(
         &mut self,
@@ -193,7 +177,7 @@ where
 
 impl<T> Mutatable for Vec<T>
 where
-    T: Mutatable + NewFuzzed + SerializedSize, 
+    T: Mutatable + NewFuzzed + SerializedSize,
 {
     fn mutate<R: rand::Rng>(
         &mut self,
@@ -331,7 +315,6 @@ impl Mutatable for i64 {
         *self = val as i64;
     }
 }
-
 
 impl<T> Mutatable for [T; 0]
 where

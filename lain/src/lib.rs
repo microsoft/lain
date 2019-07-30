@@ -13,8 +13,8 @@
 //! For API documentation: https://docs.rs/lain
 //!
 //! ## Installation
-//! 
-//! Lain requires rust nightly builds for specialization support. 
+//!
+//! Lain requires rust nightly builds for specialization support.
 //!
 //! Add the following to your Cargo.toml:
 //!
@@ -65,7 +65,7 @@
 //!
 //!     println!("{:?}", instance);
 //! }
-//! 
+//!
 //! // Output:
 //! //
 //! // MyStruct { field_1: 95, field_2: 5, field_3: 14, field_4: 8383, ignored_field: 0 }
