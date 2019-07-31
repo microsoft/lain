@@ -1,7 +1,7 @@
 [package]
 name = "example_fuzzer"
 version = "0.1.0"
-authors = ["Lander Brandt <labrandt@microsoft.com>"]
+authors = ["Lain Dev"]
 edition = "2018"
 
 [dependencies]
