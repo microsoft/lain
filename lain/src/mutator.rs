@@ -159,16 +159,6 @@ impl<R: Rng> Mutator<R> {
         match self.mode() {
             MutatorMode::WalkingBitFlip { bits, current_idx } => {
                 for i in current_idx..current_idx + bits {
-                    if num::cast::<u64, T>(1u64 << i).is_none() {
-                        println!("{:?}", self.mode());
-                        println!(
-                            "about to panic with i={},idx={},res={},dest_size={}",
-                            i,
-                            current_idx,
-                            1u64 << i,
-                            std::mem::size_of::<T>()
-                        );
-                    }
                     *mn = *mn ^ num::cast(1u64 << i).unwrap();
                 }
             }
