@@ -40,22 +40,51 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
     mutator: &mut Mutator<R>,
     mut max_size: Option<usize>,
 ) {
+    // We need to take the current size of the vector into consideration
+    if let Some(ref mut max_size) = max_size {
+        // avoid derefing everywhere
+        let mut max = *max_size;
+
+        let current_size = vec.serialized_size();
+        if current_size >= max {
+            return;
+        }
+
+        max -= current_size;
+
+        if max <= 1 || max < T::min_nonzero_elements_size() {
+            return;
+        }
+
+        *max_size = max;
+    }
+
     let resize_count = VecResizeCount::new_fuzzed(mutator, None);
-    let mut num_elements = if vec.len() == 0 {
-        mutator.gen_range(1, 9)
+    let mut num_elements = if vec.is_empty() {
+        if let Some(ref max_size) = max_size {
+            mutator.gen_range(1, (*max_size / T::min_nonzero_elements_size()) + 1)
+        } else {
+            mutator.gen_range(1, 9)
+        }
     } else {
         match resize_count {
             VecResizeCount::Quarter => vec.len() / 4,
             VecResizeCount::Half => vec.len() / 2,
             VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
             VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
-            VecResizeCount::AllBytes => vec.len(),
+            VecResizeCount::AllBytes => {
+                if let Some(ref max_size) = max_size {
+                    mutator.gen_range(1, (*max_size / T::min_nonzero_elements_size()) + 1)
+                } else {
+                    mutator.gen_range(1, vec.len() + 1)
+                }
+            }
         }
     };
 
     // If we were given a size constraint, we need to respect it
-    if let Some(max_size) = max_size {
-        num_elements = min(num_elements, max_size / T::min_nonzero_elements_size());
+    if let Some(ref mut max_size) = max_size {
+        num_elements = min(num_elements, *max_size / T::min_nonzero_elements_size());
     }
 
     if num_elements == 0 {
@@ -68,9 +97,10 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
             // instead allocate a new vec, then extend it with the previous one
             let mut new_vec = Vec::with_capacity(num_elements);
             for _i in 0..num_elements {
-                let constraints = max_size.map_or(None, |max_size| {
+                let constraints = max_size.and_then(|max_size| {
                     let mut c = Constraints::new();
                     c.max_size(max_size);
+                    c.base_object_size_accounted_for = true;
 
                     Some(c)
                 });
@@ -84,7 +114,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
                         break;
                     }
 
-                    max_size = Some(inner_max_size - element_size)
+                    max_size = Some(inner_max_size - element_size);
                 }
 
                 new_vec.push(element);
@@ -95,9 +125,10 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
         }
         VecResizeDirection::FromEnd => {
             for _i in 0..num_elements {
-                let constraints = max_size.map_or(None, |max_size| {
+                let constraints = max_size.and_then(|max_size| {
                     let mut c = Constraints::new();
                     c.max_size(max_size);
+                    c.base_object_size_accounted_for = true;
 
                     Some(c)
                 });
@@ -111,7 +142,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
                         break;
                     }
 
-                    max_size = Some(inner_max_size - element_size)
+                    max_size = Some(inner_max_size - element_size);
                 }
 
                 vec.push(element);
@@ -124,7 +155,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
 /// This will randomly select to resize by a factor of 1/4, 1/2, 3/4, or a fixed number of bytes
 /// in the range of [1, 8]. Elements may be removed randomly from the beginning or end of the the vec
 fn shrink_vec<T, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>) {
-    if vec.len() == 0 {
+    if vec.is_empty() {
         return;
     }
 
@@ -161,16 +192,31 @@ impl<T> Mutatable for Vec<T>
 where
     T: Mutatable,
 {
+    default type RangeType = usize;
+
     default fn mutate<R: rand::Rng>(
         &mut self,
         mutator: &mut Mutator<R>,
-        constraints: Option<&Constraints<u8>>,
+        constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         // 1% chance to resize this vec
         if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(1.0) {
             shrink_vec(self, mutator);
         } else {
-            self.as_mut_slice().mutate(mutator, constraints);
+            // Recreate the constraints so that the min/max types match
+            let constraints = constraints.and_then(|c| {
+                if c.max_size.is_none() {
+                    None
+                } else {
+                    let mut new_constraints = Constraints::new();
+                    new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
+                    new_constraints.max_size = new_constraints.max_size;
+
+                    Some(new_constraints)
+                }
+            });
+
+            self.as_mut_slice().mutate(mutator, constraints.as_ref());
         }
     }
 }
@@ -179,21 +225,36 @@ impl<T> Mutatable for Vec<T>
 where
     T: Mutatable + NewFuzzed + SerializedSize,
 {
+    type RangeType = usize;
+
     fn mutate<R: rand::Rng>(
         &mut self,
         mutator: &mut Mutator<R>,
-        constraints: Option<&Constraints<u8>>,
+        constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         // 1% chance to resize this vec
         if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(1.0) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
             if resize_type == VecResizeType::Grow {
-                grow_vec(self, mutator, constraints.map_or(None, |c| c.max_size));
+                grow_vec(self, mutator, constraints.and_then(|c| c.max_size));
             } else {
                 shrink_vec(self, mutator);
             }
         } else {
-            self.as_mut_slice().mutate(mutator, constraints);
+            // Recreate the constraints so that the min/max types match
+            let constraints = constraints.and_then(|c| {
+                if c.max_size.is_none() {
+                    None
+                } else {
+                    let mut new_constraints = Constraints::new();
+                    new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
+                    new_constraints.max_size = new_constraints.max_size;
+
+                    Some(new_constraints)
+                }
+            });
+
+            self.as_mut_slice().mutate(mutator, constraints.as_ref());
         }
     }
 }
@@ -202,7 +263,9 @@ impl<T> Mutatable for [T]
 where
     T: Mutatable,
 {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<u8>>) {
+    type RangeType = T::RangeType;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) {
         for item in self.iter_mut() {
             T::mutate(item, mutator, constraints);
         }
@@ -210,7 +273,9 @@ where
 }
 
 impl Mutatable for bool {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    type RangeType = u8;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         *self = mutator.gen_range(0u8, 2u8) != 0;
     }
 }
@@ -222,12 +287,16 @@ where
         + NumCast
         + Bounded
         + Copy
+        + std::fmt::Debug
+        + Default
         + DangerousNumber<I>
         + std::fmt::Display
         + WrappingAdd
         + WrappingSub,
 {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    type RangeType = I;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         if let UnsafeEnum::Valid(ref value) = *self {
             *self = UnsafeEnum::Invalid(value.to_primitive());
         }
@@ -242,7 +311,9 @@ where
 }
 
 impl Mutatable for AsciiString {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    type RangeType = u8;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         trace!("performing mutation on an AsciiString");
 
         // TODO: Implement logic for resizing?
@@ -254,7 +325,9 @@ impl Mutatable for AsciiString {
 }
 
 impl Mutatable for Utf8String {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    type RangeType = u8;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         trace!("performing mutation on a Utf8String");
 
         // TODO: Implement logic for resizing?
@@ -269,8 +342,10 @@ macro_rules! impl_mutatable {
     ( $($name:ident),* ) => {
         $(
             impl Mutatable for $name {
+                type RangeType = $name;
+
                 #[inline(always)]
-                fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+                fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
                     mutator.mutate_from_mutation_mode(self);
                 }
             }
@@ -281,8 +356,10 @@ macro_rules! impl_mutatable {
 impl_mutatable!(u64, u32, u16, u8);
 
 impl Mutatable for i8 {
+    type RangeType = i8;
+
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         let mut val = *self as u8;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i8;
@@ -290,8 +367,10 @@ impl Mutatable for i8 {
 }
 
 impl Mutatable for i16 {
+    type RangeType = i16;
+
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         let mut val = *self as u16;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i16;
@@ -299,8 +378,10 @@ impl Mutatable for i16 {
 }
 
 impl Mutatable for i32 {
+    type RangeType = i32;
+
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         let mut val = *self as u32;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i32;
@@ -308,8 +389,10 @@ impl Mutatable for i32 {
 }
 
 impl Mutatable for i64 {
+    type RangeType = i64;
+
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<u8>>) {
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
         let mut val = *self as u64;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i64;
@@ -320,10 +403,12 @@ impl<T> Mutatable for [T; 0]
 where
     T: Mutatable,
 {
+    type RangeType = u8;
+
     fn mutate<R: Rng>(
         &mut self,
         _mutator: &mut Mutator<R>,
-        _constraints: Option<&Constraints<u8>>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         // nop
     }
@@ -334,8 +419,10 @@ macro_rules! impl_mutatable_array {
         $(
             impl<T> Mutatable for [T; $size]
             where T: Mutatable {
+                type RangeType = T::RangeType;
+
                 #[inline(always)]
-                fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<u8>>) {
+                fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) {
                     // Treat this as a slice
                     self[0..].mutate(mutator, constraints);
                 }

@@ -149,7 +149,7 @@ fn serialize_fields(
                             let ident = TokenStream::from_str(&format!("field_{}", i)).unwrap();
 
                             total_size.extend(quote! {total_size += #ident.serialized_size();});
-                            variant_sizes.push(quote! {std::mem::size_of::<#field_ty>()});
+                            variant_sizes.push(quote! {<#field_ty>::min_nonzero_elements_size()});
 
                             serialized_fields.extend(quote! {
                                 #ident.binary_serialize::<_, E>(buffer);

@@ -90,28 +90,38 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
 
                         for (i, ref unnamed) in fields.unnamed.iter().enumerate() {
                             let field_ty = &unnamed.ty;
-                            let identifier =
+                            let ident =
                                 TokenStream::from_str(&format!("field_{}", i)).unwrap();
 
                             mutate_call.extend(quote_spanned! { unnamed.span() =>
-                                <#field_ty>::mutate(#identifier, mutator, constraints);
-                                max_size = max_size.map(|max| {
-                                    // in case a user didn't appropriately supply a max size constraint (i.e. a max
-                                    // size that's smaller than the object's min size), we don't want to panic
-                                    let serialized_size = #identifier.serialized_size();
+                                let constraints = max_size.and_then(|max|{
+                                    let mut c = ::lain::types::Constraints::new();
+                                    c.base_object_size_accounted_for = true;
+                                    c.max_size(max);
 
-                                    if serialized_size > max {
-                                        warn!("Max size provided to object is likely smaller than min object size");
-
-                                        0
-                                    } else {
-                                        max - serialized_size
-                                    }
+                                    Some(c)
                                 });
+
+                                <#field_ty>::mutate(#ident, mutator, constraints.as_ref());
+                                if <#field_ty>::is_variable_size() {
+                                    max_size = max_size.map(|max| {
+                                        // in case a user didn't appropriately supply a max size constraint (i.e. a max
+                                        // size that's smaller than the object's min size), we don't want to panic
+                                        let serialized_size = #ident.serialized_size();
+
+                                        if serialized_size > max {
+                                            warn!("Max size provided to object is likely smaller than min object size");
+
+                                            0
+                                        } else {
+                                            max - serialized_size
+                                        }
+                                    });
+                                }
                             });
 
                             parameters
-                                .extend(quote_spanned! {unnamed.span() => ref mut #identifier,});
+                                .extend(quote_spanned! {unnamed.span() => ref mut #ident,});
                         }
 
                         mutate_match_arms.push(quote! {
@@ -132,10 +142,22 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
                 // TODO: This will keep any #[fuzzer(ignore)] or #[weight(N)] attributes...
                 // which we probably don't want.
                 quote_spanned! { ident.span() =>
-                    *self = <#ident>::new_fuzzed(mutator, constraints);
+                    *self = <#ident>::new_fuzzed(mutator, parent_constraints.as_ref());
                 }
             } else {
                 quote_spanned! { ident.span() =>
+                    // Make a copy of the constraints that will remain immutable for
+                    // this function. Here we ensure that the base size of this object has
+                    // been accounted for by the caller, which may be an object containing this.
+                    let parent_constraints = parent_constraints.and_then(|c| {
+                        let mut c = c.clone();
+                        c.account_for_base_object_size::<Self>();
+
+                        Some(c)
+                    });
+
+                    let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+
                     match *self {
                         #(#mutate_match_arms)*
                     }
@@ -157,8 +179,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
 
     quote_spanned! { ident.span() =>
         #[allow(unused)]
-        fn mutate<R: ::lain::rand::Rng>(&mut self, mutator: &mut ::lain::mutator::Mutator<R>, constraints: Option<&Constraints<u8>>) {
-            let mut max_size = constraints.map_or(None, |c| c.max_size);
+        fn mutate<R: ::lain::rand::Rng>(&mut self, mutator: &mut ::lain::mutator::Mutator<R>, parent_constraints: Option<&::lain::types::Constraints<u8>>) {
             #mutate_body
 
             if mutator.should_fixup() {
@@ -173,25 +194,63 @@ fn gen_struct_mutate_impl(fields: &[FuzzerObjectStructField]) -> TokenStream {
         .iter()
         .map(|f| {
             let mut field_mutation_tokens = TokenStream::new();
+            let span = f.field.span();
             let ty = &f.field.ty;
             let ident = &f.field.ident;
+            let weighted = &f.weighted;
+
+            let default_constraints = if f.min.is_some() || f.max.is_some() {
+                let min = f
+                    .min
+                    .as_ref()
+                    .map(|v| quote! {Some(#v)})
+                    .unwrap_or_else(|| quote! {None});
+                let max = f
+                    .max
+                    .as_ref()
+                    .map(|v| quote! {Some(#v)})
+                    .unwrap_or_else(|| quote! {None});
+
+                quote_spanned! { span =>
+                    let mut constraints = Constraints::new();
+                    constraints.min = #min;
+                    constraints.max = #max;
+                    constraints.max_size = max_size.clone();
+                    constraints.weighted = #weighted;
+                    constraints.base_object_size_accounted_for = true;
+
+                    let constraints = Some(constraints);
+                }
+            } else {
+                quote_spanned! { span =>
+                    let constraints = max_size.and_then(|max|{
+                        let mut c = ::lain::types::Constraints::new();
+                        c.base_object_size_accounted_for = true;
+                        c.max_size(max);
+
+                        Some(c)
+                    });
+                }
+            };
 
             field_mutation_tokens.extend(quote! {
-                // constraints should be relatively cheap to clone
-                <#ty>::mutate(&mut self.#ident, mutator, constraints);
-                max_size = max_size.map(|max| {
-                    // in case a user didn't appropriately supply a max size constraint (i.e. a max
-                    // size that's smaller than the object's min size), we don't want to panic
-                    let serialized_size = self.#ident.serialized_size();
+                #default_constraints
+                <#ty>::mutate(&mut self.#ident, mutator, constraints.as_ref());
+                if <#ty>::is_variable_size() {
+                    max_size = max_size.map(|max| {
+                        // in case a user didn't appropriately supply a max size constraint (i.e. a max
+                        // size that's smaller than the object's min size), we don't want to panic
+                        let serialized_size = self.#ident.serialized_size();
 
-                    if serialized_size > max {
-                        warn!("Max size provided to object is likely smaller than min object size");
+                        if serialized_size > max {
+                            warn!("Max size provided to object is likely smaller than min object size");
 
-                        0
-                    } else {
-                        max - serialized_size
-                    }
-                });
+                            0
+                        } else {
+                            max - serialized_size
+                        }
+                    });
+                }
 
                 if mutator.should_early_bail_mutation() {
                     if mutator.should_fixup() {
@@ -207,6 +266,18 @@ fn gen_struct_mutate_impl(fields: &[FuzzerObjectStructField]) -> TokenStream {
         .collect();
 
     quote! {
+        // Make a copy of the constraints that will remain immutable for
+        // this function. Here we ensure that the base size of this object has
+        // been accounted for by the caller, which may be an object containing this.
+        let parent_constraints = parent_constraints.and_then(|c| {
+            let mut c = c.clone();
+            c.account_for_base_object_size::<Self>();
+
+            Some(c)
+        });
+
+        let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+
         #(#mutation_parts)*
     }
 }

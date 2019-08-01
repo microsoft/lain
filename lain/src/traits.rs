@@ -42,7 +42,9 @@ pub trait NewFuzzed {
 /// A data structure that can be mutated in-place from an existing data structure, possibly generated
 /// by [NewFuzzed].
 pub trait Mutatable {
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<u8>>);
+    type RangeType: Debug + Bounded + Default;
+
+    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>);
 }
 
 /// Helper trait for calling `self.fixup(mutator)` on all child members.

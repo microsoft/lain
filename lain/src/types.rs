@@ -1,5 +1,6 @@
 use num_traits::Bounded;
 use std::fmt::Debug;
+use std::convert::{TryFrom, TryInto, From};
 
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
@@ -116,8 +117,9 @@ pub struct Constraints<T: Bounded + Debug> {
     pub max: Option<T>,
     /// Which direction to weigh the RNG towards
     pub weighted: Weighted,
-    /// The maximum size that the object has to work with
+    /// The space allotted for dynamically-sized objects 
     pub max_size: Option<usize>,
+    pub base_object_size_accounted_for: bool,
 }
 
 impl<T: Bounded + Debug> Constraints<T> {
@@ -127,6 +129,7 @@ impl<T: Bounded + Debug> Constraints<T> {
             max: None,
             weighted: Weighted::None,
             max_size: None,
+            base_object_size_accounted_for: false,
         }
     }
 
@@ -147,6 +150,23 @@ impl<T: Bounded + Debug> Constraints<T> {
 
     pub fn max_size<'a>(&'a mut self, max_size: usize) -> &'a mut Constraints<T> {
         self.max_size = Some(max_size);
+        self
+    }
+
+    pub fn account_for_base_object_size<'a, U: crate::traits::SerializedSize>(&'a mut self) -> &'a mut Constraints<T> {
+        println!("{:?}, 0x{:X}", self, U::min_nonzero_elements_size());
+        if !self.base_object_size_accounted_for {
+            if let Some(ref mut max_size) = self.max_size {
+                *max_size -= U::min_nonzero_elements_size();
+            }
+            self.base_object_size_accounted_for = true;
+        }
+
+        self
+    }
+
+    pub fn set_base_size_accounted_for<'a>(&'a mut self) -> &'a mut Constraints<T> {
+        self.base_object_size_accounted_for = true;
         self
     }
 }

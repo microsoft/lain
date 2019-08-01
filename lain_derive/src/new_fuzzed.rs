@@ -98,21 +98,33 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                         // name of the form field_N where N is its index
                         for (i, ref unnamed) in fields.unnamed.iter().enumerate() {
                             let field_type = &unnamed.ty;
-                            let identifier =
-                                TokenStream::from_str(&format!("field_{}", i)).unwrap();
+                            let ident_string = format!("field_{}", i);
+                            let ident = TokenStream::from_str(&ident_string).unwrap();
 
                             initializer.extend(quote! {
-                                let mut #identifier: #field_type = if let Some(ref constraints) = constraints {
-                                    let mut new_constraints = Constraints::default();
-                                    new_constraints.max_size = constraints.max_size;
+                                let mut #ident: #field_type = if let Some(ref constraints) = parent_constraints {
+                                    let mut new_constraints = ::lain::types::Constraints::new();
+                                    new_constraints.base_object_size_accounted_for = true;
+                                    new_constraints.max_size = max_size;
 
                                     NewFuzzed::new_fuzzed(mutator, Some(&new_constraints))
                                 } else {
                                     NewFuzzed::new_fuzzed(mutator, None)
                                 };
+
+                                if <#field_type>::is_variable_size() {
+                                    if let Some(ref mut max_size) = max_size {
+                                        if #ident.serialized_size() > *max_size {
+                                            warn!("Max size provided to {} object is likely smaller than min object size", #ident_string);
+                                            *max_size = 0;
+                                        } else {
+                                            *max_size -= #ident.serialized_size();
+                                        }
+                                    }
+                                }
                             });
 
-                            parameters.extend(quote! {#identifier,});
+                            parameters.extend(quote! {#ident,});
                         }
                         let index = variants.len();
 
@@ -158,6 +170,18 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
 
                 //
                 quote! {
+                    // Make a copy of the constraints that will remain immutable for
+                    // this function. Here we ensure that the base size of this object has
+                    // been accounted for by the caller, which may be an object containing this.
+                    let parent_constraints = parent_constraints.and_then(|c| {
+                        let mut c = c.clone();
+                        c.account_for_base_object_size::<Self>();
+
+                        Some(c)
+                    });
+
+                    let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+
                     let num: usize = dist.sample(&mut mutator.rng);
                     match num {
                         #(#variant_initializers)*
@@ -204,7 +228,7 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
         impl #impl_generics ::lain::traits::NewFuzzed for #name #ty_generics #where_clause {
             type RangeType = u8;
 
-            fn new_fuzzed<R: ::lain::rand::Rng>(mutator: &mut ::lain::mutator::Mutator<R>, mut constraints: Option<&::lain::types::Constraints<Self::RangeType>>) -> #name
+            fn new_fuzzed<R: ::lain::rand::Rng>(mutator: &mut ::lain::mutator::Mutator<R>, parent_constraints: Option<&::lain::types::Constraints<Self::RangeType>>) -> #name
             {
                 #method_body
             }
@@ -212,7 +236,7 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
     };
 
     // Uncomment to dump the AST
-    // println!("{}", expanded);
+    // println!("{}\n\n", expanded);
 
     proc_macro::TokenStream::from(expanded)
 }
@@ -266,17 +290,20 @@ fn gen_struct_new_fuzzed_impl(
                     .unwrap_or_else(|| quote! {None});
 
                 quote_spanned! { span =>
-                    let constraints: Option<::lain::types::Constraints<<#ty as ::lain::traits::NewFuzzed>::RangeType>> = Some(Constraints {
-                        min: #min,
-                        max: #max,
-                        weighted: #weighted,
-                        max_size: max_size.clone(),
-                    });
+                    let mut constraints = Constraints::new();
+                    constraints.min = #min;
+                    constraints.max = #max;
+                    constraints.max_size = max_size.clone();
+                    constraints.weighted = #weighted;
+                    constraints.base_object_size_accounted_for = true;
+
+                    let constraints = Some(constraints);
                 }
             } else {
                 quote_spanned! { span =>
-                    let constraints = max_size.map_or(None, |max|{
+                    let constraints = max_size.and_then(|max|{
                         let mut c = ::lain::types::Constraints::new();
+                        c.base_object_size_accounted_for = true;
                         c.max_size(max);
 
                         Some(c)
@@ -292,12 +319,14 @@ fn gen_struct_new_fuzzed_impl(
 
         let ident_string = ident.as_ref().unwrap().to_string();
         field_mutation_tokens.extend(quote! {
-            if let Some(ref mut max_size) = max_size {
-                if value.serialized_size() > *max_size {
-                    warn!("Max size provided to {} object is likely smaller than min object size", #ident_string);
-                    *max_size = 0;
-                } else {
-                    *max_size -= value.serialized_size();
+            if <#ty>::is_variable_size() {
+                if let Some(ref mut max_size) = max_size {
+                    if value.serialized_size() > *max_size {
+                        warn!("Max size provided to {} object is likely smaller than min object size", #ident_string);
+                        *max_size = 0;
+                    } else {
+                        *max_size -= value.serialized_size();
+                    }
                 }
             }
 
@@ -325,12 +354,22 @@ fn gen_struct_new_fuzzed_impl(
         use std::any::Any;
         use ::lain::rand::seq::index::sample;
 
-        let mut max_size = constraints.map_or(None, |c| c.max_size);
+        // Make a copy of the constraints that will remain immutable for
+        // this function. Here we ensure that the base size of this object has
+        // been accounted for by the caller, which may be an object containing this.
+        let parent_constraints = parent_constraints.and_then(|c| {
+            let mut c = c.clone();
+            c.account_for_base_object_size::<Self>();
+
+            Some(c)
+        });
+
+        let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
 
         let mut uninit_struct = std::mem::MaybeUninit::<#name>::uninit();
         let uninit_struct_ptr = uninit_struct.as_mut_ptr();
 
-        let range = if Self::is_variable_size() {
+        if Self::is_variable_size() {
             // this makes for ugly code generation, but better perf
             for i in sample(&mut mutator.rng, #generate_fields_count, #generate_fields_count).iter() {
                 match i {
@@ -340,7 +379,7 @@ fn gen_struct_new_fuzzed_impl(
             }
         } else {
             #(#generate_linear)*
-        };
+        }
 
         let mut initialized_struct = unsafe { uninit_struct.assume_init() };
 

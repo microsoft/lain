@@ -3,7 +3,8 @@
 extern crate lain;
 
 #[cfg(test)]
-mod test {
+mod test
+{
     use lain::byteorder::{BigEndian, LittleEndian};
     use lain::hexdump;
     use lain::prelude::*;
@@ -200,7 +201,7 @@ mod test {
 
     #[test]
     fn test_dynamic_array_limits() {
-        #[derive(Default, NewFuzzed, Clone)]
+        #[derive(Default, NewFuzzed, Clone, BinarySerialize)]
         struct Foo {
             #[fuzzer(min = 1, max = 10)]
             bar: Vec<u32>,

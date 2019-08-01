@@ -84,6 +84,11 @@ impl<T: 'static + Send + Sync> FuzzerDriver<T> {
         self.num_iterations.load(Ordering::SeqCst)
     }
 
+    /// Sets the current iteration
+    pub fn set_iterations(&self, iterations: usize) {
+        self.num_iterations.store(iterations, Ordering::SeqCst);
+    }
+
     /// Returns the number of iterations that returned an error result
     pub fn num_failed_iterations(&self) -> usize {
         self.num_failed_iterations.load(Ordering::SeqCst)
@@ -94,11 +99,7 @@ impl<T: 'static + Send + Sync> FuzzerDriver<T> {
     }
 
     pub fn global_context(&self) -> Option<Arc<RwLock<T>>> {
-        if let Some(ref context) = self.global_context {
-            Some(context.clone())
-        } else {
-            None
-        }
+        self.global_context.as_ref().map(|c| Arc::clone(c))
     }
 
     /// Sets the root seed

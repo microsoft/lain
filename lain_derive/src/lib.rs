@@ -152,6 +152,8 @@ pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     let expanded = quote! {
         impl #impl_generics ::lain::traits::Mutatable for #name #ty_generics #where_clause {
+            type RangeType = u8;
+
             #imp
         }
     };
