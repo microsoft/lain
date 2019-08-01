@@ -142,7 +142,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
                 // TODO: This will keep any #[fuzzer(ignore)] or #[weight(N)] attributes...
                 // which we probably don't want.
                 quote_spanned! { ident.span() =>
-                    *self = <#ident>::new_fuzzed(mutator, parent_constraints.as_ref());
+                    *self = <#ident>::new_fuzzed(mutator, parent_constraints);
                 }
             } else {
                 quote_spanned! { ident.span() =>

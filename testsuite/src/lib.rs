@@ -725,6 +725,28 @@ mod test
         }
     }
 
+    #[test]
+    /// This test mostly ensures that compilation didn't break
+    fn simple_enums_work() {
+
+        #[derive(Copy, Clone, NewFuzzed, Mutatable, BinarySerialize, ToPrimitiveU8)]
+        enum SimpleEnum {
+            Foo = 1,
+            Bar = 2,
+        }
+
+        let mut mutator = get_mutator();
+
+        let mut instance = SimpleEnum::new_fuzzed(&mut mutator, None);
+        for _i in 0..10 {
+            instance = SimpleEnum::new_fuzzed(&mut mutator, None);
+        }
+
+        for _i in 0..10 {
+            instance.mutate(&mut mutator, None);
+        }
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 
