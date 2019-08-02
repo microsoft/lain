@@ -16,6 +16,8 @@ mod fuzzerobject;
 mod new_fuzzed;
 mod serialize;
 mod internals;
+mod fragment;
+mod dummy;
 
 use crate::fuzzerobject::*;
 use crate::new_fuzzed::*;
