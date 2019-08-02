@@ -1,8 +1,8 @@
 mod ctxt;
-mod attr;
 mod utils;
 mod symbol;
-mod ast;
+pub mod ast;
+pub mod attr;
 
 pub use self::ctxt::Ctxt;
 

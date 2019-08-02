@@ -2,10 +2,11 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use std::str::FromStr;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, Data, DeriveInput, Lit, NestedMeta};
+use syn::{quote, quote_spanned};
+use syn::{parse_macro_input, DeriveInput, Lit, NestedMeta};
 
 use crate::internals::{Ctxt, Derive, attr};
-use crate::internals::ast::Container;
+use crate::internals::ast::{Container, Data, Field};
 use crate::fragment::Fragment;
 
 pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
@@ -39,9 +40,9 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
 fn new_fuzzed_body(cont: &Container) -> Fragment {
     match cont.data {
         Data::Enum(ref variants) => new_fuzzed_enum(variants, &cont.attrs),
-        Data::Struct(Style::Struct, ref fields) => new_fuzzed_struct(variants, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Tuple, ref fields) => new_fuzzed_tuple_struct(variants, &cont.attrs),
-        Data::Struct(Style::Unit, ref fields) => new_fuzzed_unit_struct(variants, &cont.attrs),
+        Data::Struct(Style::Struct, ref fields) => new_fuzzed_struct(fields, &cont.attrs, &cont.ident),
+        Data::Struct(Style::Tuple, ref fields) => new_fuzzed_tuple_struct(fields, &cont.attrs),
+        Data::Struct(Style::Unit, ref fields) => new_fuzzed_unit_struct(fields, &cont.attrs),
     }
 }
 
@@ -89,7 +90,7 @@ fn new_fuzzed_struct (
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
 ) -> Fragment {
-    let new_fuzzed_fields = new_fuzzed_struct_visitor(fields, false, struct_trait: &StructTrait, cont_ident: &syn::Ident);
+    let new_fuzzed_fields = new_fuzzed_struct_visitor(fields, false, cont_ident);
 }
 
 fn new_fuzzed_tuple_struct (
@@ -109,7 +110,6 @@ fn new_fuzzed_unit_struct (
 fn new_fuzzed_struct_visitor(
     fields: &[Field],
     is_enum: bool,
-    struct_trait: &StructTrait,
     cont_ident: &syn::Ident,
 ) -> Vec<TokenStream> {
     fields
@@ -117,6 +117,11 @@ fn new_fuzzed_struct_visitor(
         .map(|field| {
             let default_constraints = field_constraints(field);
             let ty = &field.ty;
+            let field_ident = &field.member;
+            let field_ident_string = match field.member{
+                syn::Member::Named(ref ident) => ident.to_string(),
+                syn::Member::Unnamed(ref idx) => idx.to_string(),
+            };
 
             let default_initializer = quote! {
                 <#ty>::new_fuzzed(mutator, constraints.as_ref())
@@ -126,7 +131,7 @@ fn new_fuzzed_struct_visitor(
                 quote! {
                     let value = <#ty>::default();
                 }
-            } else if let Some(chance) = fields.attrs.ignore_chance() {
+            } else if let Some(chance) = field.attrs.ignore_chance() {
                 quote_spanned! { ty.span()
                     let value = if mutator.gen_chance(#chance) {
                         <#ty>::default()
@@ -134,7 +139,7 @@ fn new_fuzzed_struct_visitor(
                         #default_initializer
                     };
                 }
-            } else if let Some(initializer) = fields.attrs.initializer() {
+            } else if let Some(initializer) = field.attrs.initializer() {
                 quote_spanned! { initializer.span() =>
                     let value = #initializer;
                 }
@@ -152,7 +157,7 @@ fn new_fuzzed_struct_visitor(
                 if <#ty>::is_variable_size() {
                     if let Some(ref mut max_size) = max_size {
                         if value.serialized_size() > *max_size {
-                            warn!("Max size provided to {} object is likely smaller than min object size", #ident_string);
+                            warn!("Max size provided to {} object is likely smaller than min object size", #field_ident_string);
                             *max_size = 0;
                         } else {
                             *max_size -= value.serialized_size();
@@ -160,7 +165,7 @@ fn new_fuzzed_struct_visitor(
                     }
                 }
 
-                let field_offset = _lain::field_offset::offset_of!(#cont_ident => #ident).get_byte_offset() as isize;
+                let field_offset = _lain::field_offset::offset_of!(#cont_ident => #field_ident).get_byte_offset() as isize;
 
                 unsafe {
                     let field_ptr = (uninit_struct_ptr as *mut u8).offset(field_offset) as *mut #ty;
