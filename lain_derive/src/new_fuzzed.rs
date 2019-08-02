@@ -178,8 +178,9 @@ fn new_fuzzed_struct_visitor(
 }
 
 fn field_constraints(field: &Field) -> TokenStream {
-    if field.min().is_some() || field.max().is_some() || field.bits().is_some() {
-        if let Some(bits) = field.bits() {
+    let attrs = &field.attrs;
+    if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
+        if let Some(bits) = attrs.bits() {
             quote! {
                 let constraints = parent_constraints.and_then(|c| {
                     if c.max_size.is_none() {
@@ -191,9 +192,9 @@ fn field_constraints(field: &Field) -> TokenStream {
                 });
             }
         } else {
-            let min = field.min();
-            let max = field.max();
-            let weight_to = field.weight_to();
+            let min = attrs.min();
+            let max = attrs.max();
+            let weight_to = attrs.weight_to();
             quote! {
                 let constraints = parent_constraints.and_then(|c| {
                     if c.max_size.is_none() {
