@@ -12,11 +12,10 @@ use quote::quote;
 use proc_macro2::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-mod attr;
 mod fuzzerobject;
 mod new_fuzzed;
 mod serialize;
-mod utils;
+mod internals;
 
 use crate::fuzzerobject::*;
 use crate::new_fuzzed::*;
@@ -24,6 +23,11 @@ use crate::serialize::binary_serialize_helper;
 use quote::quote_spanned;
 use syn::spanned::Spanned;
 use syn::{Data, Fields};
+
+fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
+    let compile_errors = errors.iter().map(syn::Error::to_compile_error);
+    quote!(#(#compile_errors)*)
+}
 
 /// Implements [rand::distributions::Standard] for enums that derive this trait.
 /// This will allow you to use `rand::gen()` to randomly select an enum value.
@@ -42,10 +46,8 @@ use syn::{Data, Fields};
 /// ```
 #[proc_macro_derive(NewFuzzed, attributes(weight, fuzzer, bitfield))]
 pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let tokens = new_fuzzed_helper(input);
-    // println!("{}", tokens);
-
-    tokens
+    let input = parse_macro_input!(input as DeriveInput);
+    new_fuzzed::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into();
 }
 
 /// Implements [lain::traits::BinarySerialize] on the given struct/enum.
@@ -356,7 +358,7 @@ fn to_primitive_of_type(
     let expanded = quote! {
         impl #impl_generics ::lain::traits::ToPrimitive for #name #ty_generics #where_clause {
             type Output = #ty;
-            
+
             fn to_primitive(&self) -> #ty {
                 *self as #ty
             }
