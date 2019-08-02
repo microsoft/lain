@@ -726,6 +726,45 @@ mod test
     }
 
     #[test]
+    fn max_size_constraint_seems_to_work_with_real_failure_case() {
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        struct Foo {
+            a: u8,
+        }
+
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        struct Bar {
+            a: u32,
+
+            #[fuzzer(min=0, max=20)]
+            b: Vec<u8>,
+        }
+
+        #[derive(NewFuzzed, Mutatable, BinarySerialize)]
+        enum TestEnum {
+            Foo(Foo),
+            Bar(Bar),
+        }
+
+        const MAX_SIZE: usize = 20;
+
+        let mut mutator = get_mutator();
+        let mut constraints = Constraints::new();
+        constraints.max_size(MAX_SIZE);
+
+        let mut instance = TestEnum::new_fuzzed(&mut mutator, Some(&constraints));
+        for _i in 0..1000 {
+            instance = TestEnum::new_fuzzed(&mut mutator, Some(&constraints));
+            assert!(instance.serialized_size() <= MAX_SIZE);
+        }
+
+        for _i in 0..1000 {
+            instance.mutate(&mut mutator, Some(&constraints));
+            assert!(instance.serialized_size() <= MAX_SIZE);
+        }
+    }
+
+    #[test]
     /// This test mostly ensures that compilation didn't break
     fn simple_enums_work() {
 

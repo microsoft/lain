@@ -354,7 +354,9 @@ fn to_primitive_of_type(
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = quote! {
-        impl #impl_generics ::lain::traits::ToPrimitive<#ty> for #name #ty_generics #where_clause {
+        impl #impl_generics ::lain::traits::ToPrimitive for #name #ty_generics #where_clause {
+            type Output = #ty;
+            
             fn to_primitive(&self) -> #ty {
                 *self as #ty
             }

@@ -282,7 +282,7 @@ impl Mutatable for bool {
 
 impl<T, I> Mutatable for UnsafeEnum<T, I>
 where
-    T: ToPrimitive<I>,
+    T: ToPrimitive<Output = I>,
     I: BitXor<Output = I>
         + NumCast
         + Bounded

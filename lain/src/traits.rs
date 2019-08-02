@@ -28,6 +28,20 @@ pub trait SerializedSize {
     fn min_nonzero_elements_size() -> usize;
 }
 
+impl<T, U> SerializedSize for T
+where T: ToPrimitive<Output=U>
+{
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        std::mem::size_of::<U>()
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        std::mem::size_of::<U>()
+    }
+}
+
 /// A data structure that can have a new instance of itself created completely randomly, with optional constraints.
 pub trait NewFuzzed {
     type RangeType: Debug + Bounded + Default;
@@ -84,8 +98,10 @@ pub trait DangerousNumber<T> {
 
 /// Represents a type which can be converted to a primitive type. This should be used for enums
 /// so that the serializer can generically call `YourEnum::ToPrimitive()`
-pub trait ToPrimitive<T> {
-    fn to_primitive(&self) -> T;
+pub trait ToPrimitive {
+    type Output;
+
+    fn to_primitive(&self) -> Self::Output;
 }
 
 /// Trait used for signaling the result of the previous fuzzer iteration.

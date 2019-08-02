@@ -197,6 +197,7 @@ fn gen_struct_mutate_impl(fields: &[FuzzerObjectStructField]) -> TokenStream {
             let span = f.field.span();
             let ty = &f.field.ty;
             let ident = &f.field.ident;
+            let ident_str = ident.as_ref().unwrap().to_string();
             let weighted = &f.weighted;
 
             let default_constraints = if f.min.is_some() || f.max.is_some() {

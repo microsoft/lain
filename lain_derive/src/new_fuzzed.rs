@@ -93,15 +93,19 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                         enum_contains_items = true;
                         let mut parameters = TokenStream::new();
                         let mut initializer = TokenStream::new();
+                        let mut variant_sizes: Vec<TokenStream> = Vec::new();
 
                         // For each unnamed field we'll generate a placeholder
                         // name of the form field_N where N is its index
                         for (i, ref unnamed) in fields.unnamed.iter().enumerate() {
                             let field_type = &unnamed.ty;
+                            let field_span = unnamed.span();
                             let ident_string = format!("field_{}", i);
                             let ident = TokenStream::from_str(&ident_string).unwrap();
+                            
+                            variant_sizes.push(quote_spanned!{field_span => <#field_type>::min_nonzero_element_size()});
 
-                            initializer.extend(quote! {
+                            initializer.extend(quote_spanned! { field_span =>
                                 let mut #ident: #field_type = if let Some(ref constraints) = parent_constraints {
                                     let mut new_constraints = ::lain::types::Constraints::new();
                                     new_constraints.base_object_size_accounted_for = true;
@@ -175,7 +179,7 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                     // been accounted for by the caller, which may be an object containing this.
                     let parent_constraints = parent_constraints.and_then(|c| {
                         let mut c = c.clone();
-                        c.account_for_base_object_size::<Self>();
+                        //c.account_for_base_object_size::<Self>();
 
                         Some(c)
                     });

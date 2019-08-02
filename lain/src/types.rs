@@ -57,11 +57,13 @@ where
     }
 }
 
-impl<E, T> crate::traits::ToPrimitive<T> for UnsafeEnum<E, T>
+impl<E, T> crate::traits::ToPrimitive for UnsafeEnum<E, T>
 where
-    E: crate::traits::ToPrimitive<T>,
+    E: crate::traits::ToPrimitive<Output=T>,
     T: Copy,
 {
+    type Output = T;
+
     fn to_primitive(&self) -> T {
         match self {
             UnsafeEnum::Valid(ref e) => e.to_primitive(),

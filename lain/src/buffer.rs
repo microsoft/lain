@@ -9,6 +9,7 @@ impl<T> SerializedSize for [T]
 where
     T: SerializedSize,
 {
+    #[inline]
     default fn serialized_size(&self) -> usize {
         trace!("using default serialized_size for array");
         if self.is_empty() {
@@ -23,6 +24,7 @@ where
         size
     }
 
+    #[inline]
     fn min_nonzero_elements_size() -> usize {
         T::min_nonzero_elements_size()
     }
@@ -33,6 +35,7 @@ macro_rules! impl_serialized_size_array {
         $(
             impl<T> SerializedSize for [T; $size]
             where T: SerializedSize {
+                #[inline]
                 fn serialized_size(&self) -> usize {
                     trace!("using default serialized_size for array");
                     if $size == 0 {
@@ -47,6 +50,7 @@ macro_rules! impl_serialized_size_array {
                     size
                 }
 
+                #[inline]
                 fn min_nonzero_elements_size() -> usize {
                     T::min_nonzero_elements_size() * $size
                 }
@@ -61,22 +65,11 @@ impl_serialized_size_array!(
     51, 52, 53, 54, 55, 56, 57, 58, 59, 60
 );
 
-/// Returns the size of an UnsafeEnum's primitive type
-impl<T, P> SerializedSize for UnsafeEnum<T, P> {
-    fn serialized_size(&self) -> usize {
-        trace!("using serialized size of unsafe enum");
-        std::mem::size_of::<P>()
-    }
-
-    fn min_nonzero_elements_size() -> usize {
-        std::mem::size_of::<P>()
-    }
-}
-
 impl<T> SerializedSize for Vec<T>
 where
     T: SerializedSize,
 {
+    #[inline]
     fn serialized_size(&self) -> usize {
         trace!("getting serialized size for Vec");
         if self.is_empty() {
@@ -91,28 +84,33 @@ where
         size
     }
 
+    #[inline]
     fn min_nonzero_elements_size() -> usize {
         T::min_nonzero_elements_size()
     }
 }
 
 impl SerializedSize for str {
+    #[inline]
     fn serialized_size(&self) -> usize {
         trace!("getting serialized size of str");
         self.as_bytes().len()
     }
 
+    #[inline]
     fn min_nonzero_elements_size() -> usize {
         std::mem::size_of::<char>()
     }
 }
 
 impl SerializedSize for String {
+    #[inline]
     fn serialized_size(&self) -> usize {
         trace!("getting serialized size of String");
         self.as_bytes().len()
     }
 
+    #[inline]
     fn min_nonzero_elements_size() -> usize {
         std::mem::size_of::<char>()
     }
@@ -238,6 +236,7 @@ macro_rules! impl_serialized_size {
                     std::mem::size_of::<$name>()
                 }
 
+                #[inline]
                 fn min_nonzero_elements_size() -> usize {
                     std::mem::size_of::<$name>()
                 }

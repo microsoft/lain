@@ -65,38 +65,43 @@ pub(crate) fn binary_serialize_helper(input: proc_macro::TokenStream) -> proc_ma
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let tokens = serialize_fields(&name, &input.data, use_inner_member_serialized_size);
+    let mut tokens = serialize_fields(&name, &input.data, use_inner_member_serialized_size);
 
     let serialize = tokens.serialize;
 
     let serialized_size = if let Some(size) = static_serialized_size {
-        quote! {#size}
+        tokens.min_nonzero_elements_size = Some(quote!{#size});
+        Some(quote! {#size})
     } else if let Some(ref serialized_size) = tokens.serialized_size {
-        serialized_size.clone()
+        Some(serialized_size.clone())
     } else {
-        quote! {std::mem::size_of_val(&self.to_primitive());}
+        None
     };
 
-    let min_nonzero_elements_size = tokens.min_nonzero_elements_size.unwrap();
+    let mut serialized_size_impl: TokenStream = quote!{};
 
-    let serialized_size = quote! {
-        impl #impl_generics ::lain::traits::SerializedSize for #name #ty_generics #where_clause {
-            #[inline(always)]
-            fn serialized_size(&self) -> usize {
-                use ::lain::traits::SerializedSize;
-                ::lain::log::debug!("getting serialized size of {}", #name_as_string);
-                let size = #serialized_size;
-                ::lain::log::debug!("size of {} is 0x{:02X}", #name_as_string, size);
+    if let Some(min_nonzero_elements_size) = tokens.min_nonzero_elements_size {
+        if let Some(serialized_size) = serialized_size {
+            serialized_size_impl = quote! {
+                impl #impl_generics ::lain::traits::SerializedSize for #name #ty_generics #where_clause {
+                    #[inline(always)]
+                    fn serialized_size(&self) -> usize {
+                        use ::lain::traits::SerializedSize;
+                        ::lain::log::debug!("getting serialized size of {}", #name_as_string);
+                        let size = #serialized_size;
+                        ::lain::log::debug!("size of {} is 0x{:02X}", #name_as_string, size);
 
-                return size;
-            }
+                        return size;
+                    }
 
-            #[inline(always)]
-            fn min_nonzero_elements_size() -> usize {
-                #min_nonzero_elements_size
-            }
+                    #[inline(always)]
+                    fn min_nonzero_elements_size() -> usize {
+                        #min_nonzero_elements_size
+                    }
+                }
+            };
         }
-    };
+    }
 
     // println!("{}", serialized_size);
 
@@ -110,7 +115,7 @@ pub(crate) fn binary_serialize_helper(input: proc_macro::TokenStream) -> proc_ma
             }
         }
 
-        #serialized_size
+        #serialized_size_impl
     };
 
     // Uncomment to dump the AST
@@ -209,15 +214,7 @@ fn serialize_fields(
                             self.to_primitive().binary_serialize::<_, E>(buffer);
                         };
 
-                        let size = quote! {
-                            std::mem::size_of::<#name>();
-                        };
-
-                        let min_size = quote! {
-                            std::mem::size_of::<#name>()
-                        };
-
-                        return BinarySerializeTokens::new(serialize, Some(size), Some(min_size));
+                        return BinarySerializeTokens::new(serialize, None, None);
                     }
                     _ => panic!("unsupported enum type (probably contains named members)"),
                 }
