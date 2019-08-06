@@ -145,9 +145,9 @@ pub enum WeightTo {
 impl ToTokens for WeightTo {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match *self {
-            WeightTo::None => tokens.extend(quote! {_lain::types::WeightTo::None}),
-            WeightTo::Min => tokens.extend(quote! {_lain::types::WeightTo::Min}),
-            WeightTo::Max => tokens.extend(quote! {_lain::types::WeightTo::Max}),
+            WeightTo::None => tokens.extend(quote! {_lain::types::Weighted::None}),
+            WeightTo::Min => tokens.extend(quote! {_lain::types::Weighted::Min}),
+            WeightTo::Max => tokens.extend(quote! {_lain::types::Weighed::Max}),
         }
     }
 }

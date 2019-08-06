@@ -1,8 +1,8 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use std::str::FromStr;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, Lit, NestedMeta};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 
 use crate::internals::{Ctxt, Derive, attr};
 use crate::internals::ast::{Container, Data, Field, Variant, Style};
@@ -86,6 +86,8 @@ fn new_fuzzed_enum (
                 _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
         }
 
+        #constraints_prelude
+
         let idx: usize = dist.sample(&mut mutator.rng);
         match idx {
             #(#match_arms)*
@@ -137,6 +139,8 @@ fn new_fuzzed_struct (
     }
 
     quote! {
+        use _lain::rand::seq::index::sample;
+
         #prelude
 
         let mut uninit_struct = std::mem::MaybeUninit::<#cont_ident>::uninit();
@@ -183,16 +187,17 @@ fn new_fuzzed_struct_visitor(
         .map(|field| {
             let (field_ident, field_ident_string, initializer) = field_initializer(field, "self_");
             let ty = &field.ty;
+            let member = &field.member;
 
             quote! {
                 #initializer
 
-                let field_offset = _lain::field_offset::offset_of!(#cont_ident => #field_ident).get_byte_offset() as isize;
+                let field_offset = _lain::field_offset::offset_of!(#cont_ident => #member).get_byte_offset() as isize;
 
                 unsafe {
                     let field_ptr = (uninit_struct_ptr as *mut u8).offset(field_offset) as *mut #ty;
 
-                    std::ptr::write(field_ptr, value);
+                    std::ptr::write(field_ptr, #field_ident);
                 }
             }
         })
@@ -202,47 +207,42 @@ fn new_fuzzed_struct_visitor(
 fn struct_field_constraints(field: &Field) -> TokenStream {
     let attrs = &field.attrs;
     if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
+        let min: TokenStream;
+        let max: TokenStream;
         if let Some(bits) = attrs.bits() {
-            quote! {
-                let constraints = parent_constraints.and_then(|c| {
-                    if c.max_size.is_none() {
-                        None
-                    } else {
-                        c.clone();
-                        c.max_size = max_size;
-                    }
-                });
-            }
+            // TODO: maybe refactor attributes so that they can retain original span
+            let bitfield_max = syn::LitInt::new(2_u64.pow(bits as u32), syn::IntSuffix::None, Span::call_site()); 
+            max = quote!{Some(#bitfield_max)};
+            min = quote!{Some(0)};
         } else {
-            let min = attrs.min();
-            let max = attrs.max();
-            let weight_to = attrs.weight_to();
-            quote! {
-                let constraints = parent_constraints.and_then(|c| {
-                    if c.max_size.is_none() {
-                        None
-                    } else {
-                        c.clone();
-                        c.min = #min;
-                        c.max = #max;
-                        c.weighted = #weight_to;
-                        c.max_size = max_size;
-                    }
-                });
-            }
+            min = option_to_tokens(attrs.min());
+            max = option_to_tokens(attrs.max());
+        }
+
+        let weight_to = attrs.weight_to().unwrap_or(&attr::WeightTo::None);
+        quote! {
+            let constraints = Constraints::new();
+            constraints.min = #min;
+            constraints.max = #max;
+            constraints.weighted = #weight_to;
+            constraints.max_size = max_size;
+            constraints.base_object_size_accounted_for = true;
+            let constraints = Some(constraints);
         }
     } else {
         quote! {
-            let constraints = parent_constraints.and_then(|c| {
-                if c.max_size.is_none() {
-                    None
-                } else {
-                    c.clone();
-                    c.max_size = max_size;
-                }
+            let constraints = max_size.as_ref().and_then(|m| {
+                let c = Constraints::new();
+                c.base_object_size_accounted_for = true;
+                c.max_size(*m);
+                Some(c)
             });
         }
     }
+}
+
+fn option_to_tokens<T: ToTokens + Spanned>(opt: Option<&T>) -> TokenStream {
+    opt.map_or_else(|| quote!{None}, |o| quote_spanned!{opt.span() => Some(#o)})
 }
 
 fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, String, TokenStream) {
@@ -292,7 +292,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
                     warn!("Max size provided to {} object is likely smaller than min object size", #field_ident_string);
                     *max_size = 0;
                 } else {
-                    *max_size -= value.serialized_size();
+                    *max_size -= #value_ident.serialized_size();
                 }
             }
         }
@@ -339,8 +339,7 @@ fn new_fuzzed_enum_visitor(
 
             let field_initializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
                 let (value_ident, field_ident_string, initializer) = field_initializer(field, "__field");
-                let member = &field.member;
-                field_identifiers.push(quote_spanned!{ field.member.span() => #member: #value_ident });
+                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
 
                 initializer
             })
