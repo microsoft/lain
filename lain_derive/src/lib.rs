@@ -145,27 +145,8 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// ```
 #[proc_macro_derive(Mutatable, attributes(lain))]
 pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    return proc_macro::TokenStream::from(TokenStream::new());
-    // let input = parse_macro_input!(input as DeriveInput);
-
-    // let name = input.ident;
-
-    // let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-    // let imp = gen_mutate_impl(&name, &input.data);
-
-    // let expanded = quote! {
-    //     impl #impl_generics ::lain::traits::Mutatable for #name #ty_generics #where_clause {
-    //         type RangeType = u8;
-
-    //         #imp
-    //     }
-    // };
-
-    // // Uncomment to dump the AST
-    // // println!("{}", expanded);
-
-    // proc_macro::TokenStream::from(expanded)
+    let input = parse_macro_input!(input as DeriveInput);
+    mutations::expand_mutatable(&input).unwrap_or_else(to_compile_errors).into()
 }
 
 /// Automatically implements [trait@lain::traits::VariableSizeObject]

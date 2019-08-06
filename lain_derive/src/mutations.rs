@@ -8,6 +8,42 @@ use crate::internals::{Ctxt, Derive, attr};
 use crate::internals::ast::{Container, Data, Field, Variant, Style};
 use crate::dummy;
 
+pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
+    let ctx = Ctxt::new();
+
+    let cont = match Container::from_ast(&ctx, input, Derive::NewFuzzed) {
+        Some(cont) => cont,
+        None => return Err(ctx.check().unwrap_err()),
+    };
+
+    let ident = &cont.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let body = mutatable_body(&cont);
+    let lain = cont.attrs.lain_path();
+
+    ctx.check()?;
+
+    let impl_block = quote! {
+        #[automatically_derived]
+        impl #impl_generics #lain::traits::Mutatable for #ident #ty_generics #where_clause {
+            // structs always have a RangeType of u8 since they shouldn't
+            // really use the min/max
+            type RangeType = u8;
+
+            fn mutate<R: #lain::rand::Rng>(&mut self, mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>)
+            {
+                #body
+            }
+        }
+    };
+
+    let data = dummy::wrap_in_const("MUTATABLE", ident, impl_block);
+    println!("{}", data);
+
+    Ok(data)
+}
+
 pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
     let ctx = Ctxt::new();
 
@@ -25,9 +61,12 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     ctx.check()?;
 
     let impl_block = quote! {
+        #[automatically_derived]
         impl #impl_generics #lain::traits::NewFuzzed for #ident #ty_generics #where_clause {
             type RangeType = u8;
 
+            // structs always have a RangeType of u8 since they shouldn't
+            // really use the min/max
             fn new_fuzzed<R: #lain::rand::Rng>(mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>) -> Self
             {
                 #body
@@ -39,6 +78,154 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     println!("{}", data);
 
     Ok(data)
+}
+
+fn mutatable_body(cont: &Container) -> TokenStream {
+    match cont.data {
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => mutatable_enum(variants, &cont.attrs, &cont.ident),
+        Data::Enum(ref variants) => mutatable_unit_enum(variants, &cont.attrs, &cont.ident),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => mutatable_struct(fields, &cont.attrs, &cont.ident),
+        Data::Struct(Style::Unit, ref fields) => TokenStream::new(),
+    }
+}
+
+fn mutatable_enum (
+    variants: &[Variant],
+    cattrs: &attr::Container,
+    cont_ident: &syn::Ident,
+) ->  TokenStream {
+    let constraints_prelude = constraints_prelude();
+    let match_arms = mutatable_enum_visitor(variants, cont_ident);
+    let variant_count = match_arms.len();
+
+    quote! {
+        if mutator.mode() == _lain::mutator::MutatorMode::Havoc {
+            *self = Self::new_fuzzed(mutator, parent_constraints);
+            return;
+        }
+        
+        #constraints_prelude
+
+        match *self {
+            #(#match_arms)*
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn mutatable_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
+    let (weights, variant_tokens) = mutatable_unit_enum_visitor(variants, cont_ident);
+    let variant_count = variant_tokens.len();
+
+    quote! {
+        use _lain::rand::seq::SliceRandom;
+        use _lain::rand::distributions::Distribution;
+
+        static options: [#cont_ident; #variant_count] = [#(#variant_tokens,)*];
+
+        static weights: [u64; #variant_count] = [#(#weights,)*];
+
+        _lain::lazy_static::lazy_static! {
+            static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
+                _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
+        }
+
+        let idx: usize = dist.sample(&mut mutator.rng);
+        *self = options[idx]
+    }
+}
+
+fn mutatable_struct (
+    fields: &[Field],
+    cattrs: &attr::Container,
+    cont_ident: &syn::Ident,
+) -> TokenStream {
+    let mutators = mutatable_struct_visitor(fields, cont_ident);
+    let prelude = constraints_prelude();
+
+    let len = mutators.len();
+
+    quote! {
+        #prelude
+
+        #(#mutators)*
+
+        if mutator.should_fixup() {
+            self.fixup(mutator);
+        }
+    }
+}
+
+fn mutatable_unit_enum_visitor(
+    variants: &[Variant],
+    cont_ident: &syn::Ident,
+) -> (Vec<u64>, Vec<TokenStream>) {
+    let mut weights = vec![];
+
+    let variants = variants.iter().filter_map(|variant| {
+        if variant.attrs.ignore() {
+            None
+        } else {
+            let variant_ident = &variant.ident;
+            weights.push(variant.attrs.weight().unwrap_or(1));
+            Some(quote!{#cont_ident::#variant_ident})
+        }
+    })
+    .collect();
+
+    (weights, variants)
+}
+
+fn mutatable_enum_visitor(
+    variants: &[Variant],
+    cont_ident: &syn::Ident,
+) -> Vec<TokenStream> {
+    let match_arms = variants
+        .iter()
+        .filter_map(|variant| {
+            if variant.attrs.ignore() {
+                return None;
+            }
+
+            let variant_ident = &variant.ident;
+            let full_ident = quote!{#cont_ident::#variant_ident};
+            let mut field_identifiers = vec![];
+
+            let field_mutators: Vec<TokenStream> = variant.fields.iter().map(|field| {
+                let (value_ident, field_ident_string, initializer) = field_mutator(field, "__field", true);
+                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
+
+                initializer
+            })
+            .collect();
+
+            let match_arm = quote! {
+                #full_ident(#(ref mut #field_identifiers,)*) => {
+                    #(#field_mutators)*
+                }
+            };
+
+            Some(match_arm)
+        })
+        .collect();
+
+    match_arms
+}
+
+fn mutatable_struct_visitor(
+    fields: &[Field],
+    cont_ident: &syn::Ident,
+) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .map(|field| {
+            let (_field_ident, _field_ident_string, initializer) = field_mutator(field, "self.", false);
+
+            quote! {
+                #initializer
+            }
+        })
+        .collect()
 }
 
 fn new_fuzzed_body(cont: &Container) -> TokenStream {
@@ -286,6 +473,54 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
         #default_constraints 
 
         #initializer
+        if <#ty>::is_variable_size() {
+            if let Some(ref mut max_size) = max_size {
+                if #value_ident.serialized_size() > *max_size {
+                    warn!("Max size provided to {} object is likely smaller than min object size", #field_ident_string);
+                    *max_size = 0;
+                } else {
+                    *max_size -= #value_ident.serialized_size();
+                }
+            }
+        }
+    };
+
+    (value_ident, field_ident_string, initializer)
+}
+
+fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool) -> (TokenStream, String, TokenStream) {
+    let default_constraints = struct_field_constraints(field);
+    let ty = &field.ty;
+    let field_ident = &field.member;
+    let field_ident_string = match field.member{
+        syn::Member::Named(ref ident) => ident.to_string(),
+        syn::Member::Unnamed(ref idx) => idx.index.to_string(),
+    };
+
+    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
+    let borrow = if is_destructured {
+        TokenStream::new()
+    } else {
+        quote!{&mut}
+    };
+
+    let mutator_stmts = quote! {
+        <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
+
+        if mutator.should_early_bail_mutation() {
+            if mutator.should_fixup() {
+                <#ty>::fixup(#borrow #value_ident, mutator);
+            }
+
+            return;
+        }
+    };
+
+    let initializer = quote! {
+        #default_constraints 
+
+        #mutator_stmts
+
         if <#ty>::is_variable_size() {
             if let Some(ref mut max_size) = max_size {
                 if #value_ident.serialized_size() > *max_size {

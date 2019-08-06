@@ -82,12 +82,6 @@ impl<'c> BoolAttr<'c> {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum Endian {
-    Big,
-    Little,
-}
-
 /// Represents a struct or enum attribute information
 pub struct Container {
     serialized_size: Option<usize>,
@@ -331,7 +325,7 @@ impl Field {
     pub fn big_endian(&self) -> bool {
         self.big_endian
     }
-    
+
     pub fn weight_to(&self) -> Option<&WeightTo> {
         self.weight_to.as_ref()
     }
