@@ -23,13 +23,10 @@ pub const CHANCE_TO_IGNORE_POST_MUTATION: f32 = 1.0;
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, NewFuzzed)]
 enum MutatorOperation {
-    #[weight(2)]
     BitFlip,
 
-    #[weight(2)]
     Flip,
 
-    #[weight(2)]
     Arithmetic,
 }
 

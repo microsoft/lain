@@ -12,8 +12,6 @@ use quote::quote;
 use proc_macro2::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-#[macro_use]
-mod fragment;
 //mod fuzzerobject;
 mod mutations;
 //mod serialize;
@@ -21,7 +19,7 @@ mod internals;
 mod dummy;
 
 //use crate::fuzzerobject::*;
-use crate::serialize::binary_serialize_helper;
+//use crate::serialize::binary_serialize_helper;
 use quote::quote_spanned;
 use syn::spanned::Spanned;
 use syn::{Data, Fields};
@@ -113,7 +111,7 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 ///
 /// - Any bitfields will automatically be set within the appropriate ranges.
 /// - Min/max values for primitives can be specified using `#[fuzzer(min = 10, max = 20)]`.
-/// - Fields can be ignored using #[fuzzer(ignore = true)].
+/// - Fields can be ignored using #[fuzzer(ignore)].
 /// - Custom initializers can be specified using #[fuzzer(initializer = "my_initializer_func()")]
 ///
 /// # Example
@@ -148,26 +146,26 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 #[proc_macro_derive(Mutatable, attributes(lain))]
 pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     return proc_macro::TokenStream::from(TokenStream::new());
-    let input = parse_macro_input!(input as DeriveInput);
+    // let input = parse_macro_input!(input as DeriveInput);
 
-    let name = input.ident;
+    // let name = input.ident;
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    // let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let imp = gen_mutate_impl(&name, &input.data);
+    // let imp = gen_mutate_impl(&name, &input.data);
 
-    let expanded = quote! {
-        impl #impl_generics ::lain::traits::Mutatable for #name #ty_generics #where_clause {
-            type RangeType = u8;
+    // let expanded = quote! {
+    //     impl #impl_generics ::lain::traits::Mutatable for #name #ty_generics #where_clause {
+    //         type RangeType = u8;
 
-            #imp
-        }
-    };
+    //         #imp
+    //     }
+    // };
 
-    // Uncomment to dump the AST
-    // println!("{}", expanded);
+    // // Uncomment to dump the AST
+    // // println!("{}", expanded);
 
-    proc_macro::TokenStream::from(expanded)
+    // proc_macro::TokenStream::from(expanded)
 }
 
 /// Automatically implements [trait@lain::traits::VariableSizeObject]

@@ -102,11 +102,20 @@ impl Container {
             for meta_item in meta_items {
                 match meta_item {
                     Meta(NameValue(ref m)) if m.ident == SERIALIZED_SIZE => {
-                        if let Int(i) = m.lit {
+                        if let Int(ref i) = m.lit {
                             serialized_size.set(&m.ident, i.value() as usize);
                         } else {
-                            cx.error_spanned_by(m.lit, format!("failed to integer expression for {}", SERIALIZED_SIZE));
+                            cx.error_spanned_by(&m.lit, format!("failed to integer expression for {}", SERIALIZED_SIZE));
                         }
+                    }
+                    Meta(ref meta_item) => {
+                        cx.error_spanned_by(
+                            meta_item.name(),
+                            format!("unknown lain container attribute `{}`", meta_item.name()),
+                        );
+                    }
+                    Literal(ref lit) => {
+                        cx.error_spanned_by(lit, "unexpected literal in lain container attribute");
                     }
                 }
             }
@@ -157,7 +166,7 @@ pub struct Field {
     max: Option<TokenStream>,
     ignore: bool,
     ignore_chance: Option<f64>,
-    initializer: Option<syn::ExprPath>,
+    initializer: Option<TokenStream>,
     little_endian: bool,
     big_endian: bool,
     weight_to: Option<WeightTo>
@@ -198,16 +207,16 @@ impl Field {
                     }
                     // `#[lain(bits = 3)]`
                     Meta(NameValue(ref m)) if m.ident == BITS => {
-                        if let Int(i) = m.lit {
+                        if let Int(ref i) = m.lit {
                             bits.set(&m.ident, i.value() as usize);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for {}", BITS));
+                            cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for `{}`", BITS));
                         }
                     }
                     // `#[lain(big_endian)]`
                     Meta(Word(ref word)) if word == BIG_ENDIAN => {
                         if little_endian.get() {
-                            cx.error_spanned_by(word, format!("attribute meta items {} and {} are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
+                            cx.error_spanned_by(word, format!("attribute meta items `{}` and `{}` are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
                         } else {
                             big_endian.set_true(word);
                         }
@@ -215,7 +224,7 @@ impl Field {
                     // `#[lain(little_endian)]`
                     Meta(Word(ref word)) if word == LITTLE_ENDIAN => {
                         if big_endian.get() {
-                            cx.error_spanned_by(word, format!("attribute meta items {} and {} are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
+                            cx.error_spanned_by(word, format!("attribute meta items `{}` and `{}` are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
                         } else {
                             little_endian.set_true(word);
                         }
@@ -226,28 +235,39 @@ impl Field {
                     }
                     // `#[lain(ignore_chance = 99.0)]`
                     Meta(NameValue(ref m)) if m.ident == IGNORE_CHANCE => {
-                        if let Float(f) = m.lit {
+                        if let Float(ref f) = m.lit {
                             ignore_chance.set(&m.ident, f.value());
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse float expression for {}", IGNORE_CHANCE));
+                            cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
                         }
                     }
                     Meta(NameValue(ref m)) if m.ident == INITIALIZER => {
-                        if let Ok(expr) = parse_lit_into_expr_path(cx, INITIALIZER, &m.lit) {
-                            initializer.set(&m.ident, expr);
+                        if let Ok(ref s) = get_lit_str(cx, INITIALIZER, INITIALIZER, &m.lit) {
+                            if let Ok(tokens) = TokenStream::from_str(&s.value()) {
+                                initializer.set(&m.ident, tokens);
+                            } else {
+                                cx.error_spanned_by(&m.lit, format!("failed to parse tokens for `{}`", INITIALIZER))
+                            }
                         }
                     }
                     Meta(NameValue(ref m)) if m.ident == WEIGHT_TO => {
-                        // can't match an ident on a str as far as I'm aware
-                        if m.ident == "min" {
-                            weight_to.set(&m.ident, WeightTo::Min);
-                        } else if m.ident == "max" {
-                            weight_to.set(&m.ident, WeightTo::Max);
-                        } else if m.ident == "none" {
-                            weight_to.set(&m.ident, WeightTo::None);
-                        } else {
-                            cx.error_spanned_by(&m.lit, format!("unknown option `{}` for `{}`", WEIGHT_TO, m.ident));
+                        if let Ok(s) = get_lit_str(cx, WEIGHT_TO, WEIGHT_TO, &m.lit) {
+                            match s.value().as_ref() {
+                                "min" => weight_to.set(&m.ident, WeightTo::Min),
+                                "max" => weight_to.set(&m.ident, WeightTo::Max),
+                                "none" => weight_to.set(&m.ident, WeightTo::None),
+                                _ => cx.error_spanned_by(&m.lit, format!("unknown option `{}` for `{}`", WEIGHT_TO, m.ident))
+                            }
                         }
+                    }
+                    Meta(ref meta_item) => {
+                        cx.error_spanned_by(
+                            meta_item.name(),
+                            format!("unknown lain field attribute `{}`", meta_item.name()),
+                        );
+                    }
+                    Literal(ref lit) => {
+                        cx.error_spanned_by(lit, "unexpected literal in lain field attribute");
                     }
                 }
             }
@@ -300,7 +320,7 @@ impl Field {
         self.ignore_chance.clone()
     }
 
-    pub fn initializer(&self) -> Option<&syn::ExprPath> {
+    pub fn initializer(&self) -> Option<&TokenStream> {
         self.initializer.as_ref()
     }
 
@@ -328,14 +348,13 @@ impl Variant {
     pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
         let mut weight = Attr::none(cx, WEIGHT);
         let mut ignore = BoolAttr::none(cx, IGNORE);
-        let mut ignore_chance = Attr::none(cx, IGNORE_CHANCE);
 
         for meta_items in variant.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
                 match meta_item {
                     // `#[lain(weight = 3)]`
                     Meta(NameValue(ref m)) if m.ident == WEIGHT => {
-                        if let Int(i) = m.lit {
+                        if let Int(ref i) = m.lit {
                             weight.set(&m.ident, i.value());
                         } else {
                             cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for {}", WEIGHT));
@@ -344,6 +363,15 @@ impl Variant {
                     // `#[lain(ignore)]`
                     Meta(Word(ref word)) if word == IGNORE => {
                         ignore.set_true(word);
+                    }
+                    Meta(ref meta_item) => {
+                        cx.error_spanned_by(
+                            meta_item.name(),
+                            format!("unknown lain variant attribute `{}`", meta_item.name()),
+                        );
+                    }
+                    Literal(ref lit) => {
+                        cx.error_spanned_by(lit, "unexpected literal in lain variant attribute");
                     }
                 }
             }
@@ -398,7 +426,7 @@ pub fn get_lit_str<'a>(cx: &Ctxt, attr_name: Symbol, meta_item_name: Symbol, lit
 fn parse_min_max(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<TokenStream, ()> {
     // For a lit str we don't want to emit the tokens as a string, so we
     // reconstruct it as a TokenStream here
-    if let Ok(s) = get_lit_str(cx, attr_name, attr_name, lit) {
+    if let syn::Lit::Str(ref s) = lit {
         if let Ok(value) = TokenStream::from_str(&s.value()) {
             Ok(quote_spanned! {lit.span() => #value})
         } else {

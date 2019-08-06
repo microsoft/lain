@@ -6,7 +6,6 @@ use quote::{quote, quote_spanned};
 
 use crate::internals::{Ctxt, Derive, attr};
 use crate::internals::ast::{Container, Data, Field, Variant, Style};
-use crate::fragment::{Fragment, Match, Stmts, Expr};
 use crate::dummy;
 
 pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
@@ -20,8 +19,10 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     let ident = &cont.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let body = Stmts(new_fuzzed_body(&cont));
+    let body = new_fuzzed_body(&cont);
     let lain = cont.attrs.lain_path();
+
+    ctx.check()?;
 
     let impl_block = quote! {
         impl #impl_generics #lain::traits::NewFuzzed for #ident #ty_generics #where_clause {
@@ -34,13 +35,16 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
         }
     };
 
-    Ok(dummy::wrap_in_const("NEWFUZZED", ident, impl_block))
+    let data = dummy::wrap_in_const("NEWFUZZED", ident, impl_block);
+    println!("{}", data);
+
+    Ok(data)
 }
 
-fn new_fuzzed_body(cont: &Container) -> Fragment {
+fn new_fuzzed_body(cont: &Container) -> TokenStream {
     match cont.data {
         Data::Enum(ref variants) if variants[0].style != Style::Unit => new_fuzzed_enum(variants, &cont.attrs, &cont.ident),
-        Data::Enum(ref variants) if variants[0].style == Style::Unit => new_fuzzed_unit_enum(variants, &cont.attrs, &cont.ident),
+        Data::Enum(ref variants) => new_fuzzed_unit_enum(variants, &cont.attrs, &cont.ident),
         Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => new_fuzzed_struct(fields, &cont.attrs, &cont.ident),
         Data::Struct(Style::Unit, ref fields) => new_fuzzed_unit_struct(fields, &cont.attrs, &cont.ident),
     }
@@ -50,7 +54,7 @@ fn new_fuzzed_enum (
     variants: &[Variant],
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
-) -> Expr {
+) ->  TokenStream {
     let constraints_prelude = constraints_prelude();
     let (weights, new_fuzzed_fields) = new_fuzzed_enum_visitor(variants, cont_ident);
     let variant_count = new_fuzzed_fields.len();
@@ -58,7 +62,7 @@ fn new_fuzzed_enum (
     let mut match_arms = vec![];
 
     for (i, variant) in new_fuzzed_fields.iter().enumerate() {
-        match_arms.push(Stmts(quote_expr! {
+        match_arms.push(quote! {
             #i => {
                 #variant
 
@@ -68,17 +72,18 @@ fn new_fuzzed_enum (
 
                 value
             }
-        }));
+        });
     }
 
-    Expr(quote_block! {
+    quote! {
         use _lain::rand::seq::SliceRandom;
+        use _lain::rand::distributions::Distribution;
 
         static weights: [u64; #variant_count] = [#(#weights,)*];
 
-        ::lain::lazy_static::lazy_static! {
-            static ref dist: ::lain::rand::distributions::WeightedIndex<u64> =
-                ::lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
+        _lain::lazy_static::lazy_static! {
+            static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
+                _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
         }
 
         let idx: usize = dist.sample(&mut mutator.rng);
@@ -86,35 +91,36 @@ fn new_fuzzed_enum (
             #(#match_arms)*
             _ => unreachable!(),
         }
-    })
+    }
 }
 
-fn new_fuzzed_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> Expr {
+fn new_fuzzed_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
     let (weights, variant_tokens) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
     let variant_count = variant_tokens.len();
 
-    Expr(quote_block! {
+    quote! {
         use _lain::rand::seq::SliceRandom;
+        use _lain::rand::distributions::Distribution;
 
         static options: [#cont_ident; #variant_count] = [#(#variant_tokens,)*];
 
         static weights: [u64; #variant_count] = [#(#weights,)*];
 
-        ::lain::lazy_static::lazy_static! {
-            static ref dist: ::lain::rand::distributions::WeightedIndex<u64> =
-                ::lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
+        _lain::lazy_static::lazy_static! {
+            static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
+                _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
         }
 
         let idx: usize = dist.sample(&mut mutator.rng);
         options[idx]
-    })
+    }
 }
 
 fn new_fuzzed_struct (
     fields: &[Field],
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
-) -> Stmts {
+) -> TokenStream {
     let initializers = new_fuzzed_struct_visitor(fields, cont_ident);
     let prelude = constraints_prelude();
 
@@ -123,14 +129,14 @@ fn new_fuzzed_struct (
     let mut match_arms = vec![];
 
     for (i, initializer) in initializers.iter().enumerate() {
-        match_arms.push(Stmts(quote_expr! {
+        match_arms.push(quote! {
             #i => {
                 #initializer
             }
-        }));
+        });
     }
 
-    Stmts(quote_block! {
+    quote! {
         #prelude
 
         let mut uninit_struct = std::mem::MaybeUninit::<#cont_ident>::uninit();
@@ -155,15 +161,15 @@ fn new_fuzzed_struct (
         }
 
         initialized_struct
-    })
+    }
 }
 
 fn new_fuzzed_unit_struct (
     fields: &[Field],
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
-) -> Fragment {
-    quote_expr! {
+) -> TokenStream {
+    quote! {
         #cont_ident
     }
 }
@@ -171,14 +177,14 @@ fn new_fuzzed_unit_struct (
 fn new_fuzzed_struct_visitor(
     fields: &[Field],
     cont_ident: &syn::Ident,
-) -> Vec<Fragment> {
+) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
             let (field_ident, field_ident_string, initializer) = field_initializer(field, "self_");
             let ty = &field.ty;
 
-            quote_block! {
+            quote! {
                 #initializer
 
                 let field_offset = _lain::field_offset::offset_of!(#cont_ident => #field_ident).get_byte_offset() as isize;
@@ -193,11 +199,11 @@ fn new_fuzzed_struct_visitor(
         .collect()
 }
 
-fn struct_field_constraints(field: &Field) -> Fragment {
+fn struct_field_constraints(field: &Field) -> TokenStream {
     let attrs = &field.attrs;
     if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
         if let Some(bits) = attrs.bits() {
-            quote_expr! {
+            quote! {
                 let constraints = parent_constraints.and_then(|c| {
                     if c.max_size.is_none() {
                         None
@@ -211,7 +217,7 @@ fn struct_field_constraints(field: &Field) -> Fragment {
             let min = attrs.min();
             let max = attrs.max();
             let weight_to = attrs.weight_to();
-            quote_expr! {
+            quote! {
                 let constraints = parent_constraints.and_then(|c| {
                     if c.max_size.is_none() {
                         None
@@ -226,7 +232,7 @@ fn struct_field_constraints(field: &Field) -> Fragment {
             }
         }
     } else {
-        quote_expr! {
+        quote! {
             let constraints = parent_constraints.and_then(|c| {
                 if c.max_size.is_none() {
                     None
@@ -239,7 +245,7 @@ fn struct_field_constraints(field: &Field) -> Fragment {
     }
 }
 
-fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, String, Fragment) {
+fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, String, TokenStream) {
     let default_constraints = struct_field_constraints(field);
     let ty = &field.ty;
     let field_ident = &field.member;
@@ -276,7 +282,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
         }
     };
 
-    let initializer = quote_block! {
+    let initializer = quote! {
         #default_constraints 
 
         #initializer
@@ -298,7 +304,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
 fn new_fuzzed_unit_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<Fragment>) {
+) -> (Vec<u64>, Vec<TokenStream>) {
     let mut weights = vec![];
 
     let variants = variants.iter().filter_map(|variant| {
@@ -307,7 +313,7 @@ fn new_fuzzed_unit_enum_visitor(
         } else {
             let variant_ident = &variant.ident;
             weights.push(variant.attrs.weight().unwrap_or(1));
-            Some(quote_expr!{#cont_ident::#variant_ident})
+            Some(quote!{#cont_ident::#variant_ident})
         }
     })
     .collect();
@@ -318,7 +324,7 @@ fn new_fuzzed_unit_enum_visitor(
 fn new_fuzzed_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<Fragment>) {
+) -> (Vec<u64>, Vec<TokenStream>) {
     let mut weights = vec![];
     let initializers = variants
         .iter()
@@ -327,24 +333,20 @@ fn new_fuzzed_enum_visitor(
                 return None;
             }
 
-            let variant_ident = variant.ident;
+            let variant_ident = &variant.ident;
             let full_ident = quote!{#cont_ident::#variant_ident};
-            let variant_identifiers = vec![];
+            let mut field_identifiers = vec![];
 
-            let field_initializers = variant.fields.iter().map(|field| {
+            let field_initializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
                 let (value_ident, field_ident_string, initializer) = field_initializer(field, "__field");
                 let member = &field.member;
-                variant_identifiers.push(quote_spanned!{ field.member.span() => #member: #value_ident });
+                field_identifiers.push(quote_spanned!{ field.member.span() => #member: #value_ident });
 
-                quote_block! {
-                    #default_constraints
-
-                    #initializer
-                }
+                initializer
             })
             .collect();
 
-            let initializer = quote_block! {
+            let initializer = quote! {
                 #(#field_initializers)*
 
                 let value = #full_ident(#(#field_identifiers,)*);
@@ -359,8 +361,8 @@ fn new_fuzzed_enum_visitor(
     (weights, initializers)
 }
 
-fn constraints_prelude() -> Fragment {
-    quote_block! {
+fn constraints_prelude() -> TokenStream {
+    quote! {
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.

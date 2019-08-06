@@ -173,7 +173,7 @@ mod test
     fn test_ignored_fields() {
         #[derive(NewFuzzed, BinarySerialize, Clone)]
         struct IgnoredFieldsStruct {
-            #[lain(ignore = true)]
+            #[lain(ignore)]
             ignored: u8,
         }
 
@@ -308,7 +308,7 @@ mod test
         #[derive(BinarySerialize)]
         struct MyStruct {
             field1: u32,
-            #[byteorder(big)]
+            #[lain(big_endian)]
             field2: BigEndianStruct,
         }
 
@@ -341,7 +341,7 @@ mod test
         #[derive(BinarySerialize)]
         struct MyStruct {
             field1: u32,
-            #[byteorder(little)]
+            #[lain(little_endian)]
             field2: LittleEndianStruct,
         }
 
@@ -573,7 +573,7 @@ mod test
     fn test_post_mutation_called() {
         #[derive(NewFuzzed, Clone, FixupChildren, BinarySerialize)]
         struct S {
-            #[lain(ignore = true)]
+            #[lain(ignore)]
             pub post_mutation_called: bool,
         }
 

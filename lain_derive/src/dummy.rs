@@ -2,6 +2,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 
 use syn;
 use crate::internals::attr::unraw;
+use quote::quote;
 
 /// Wraps the code in a dummy const object. See https://github.com/serde-rs/serde/issues/159#issuecomment-214002626
 pub fn wrap_in_const(
@@ -19,7 +20,7 @@ pub fn wrap_in_const(
         #[allow(unknown_lints)]
         #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
         #[allow(rust_2018_idioms)]
-        extern crate lain as _lain;
+        use ::lain as _lain;
     };
 
     quote! {
