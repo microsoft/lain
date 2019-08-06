@@ -12,15 +12,15 @@ use quote::quote;
 use proc_macro2::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-mod fuzzerobject;
-mod new_fuzzed;
-mod serialize;
-mod internals;
+#[macro_use]
 mod fragment;
+//mod fuzzerobject;
+mod mutations;
+//mod serialize;
+mod internals;
 mod dummy;
 
-use crate::fuzzerobject::*;
-use crate::new_fuzzed::*;
+//use crate::fuzzerobject::*;
 use crate::serialize::binary_serialize_helper;
 use quote::quote_spanned;
 use syn::spanned::Spanned;
@@ -46,10 +46,10 @@ fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
 ///
 /// let choice: Foo = rand::gen();
 /// ```
-#[proc_macro_derive(NewFuzzed, attributes(weight, fuzzer, bitfield))]
+#[proc_macro_derive(NewFuzzed, attributes(lain))]
 pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    new_fuzzed::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into();
+    mutations::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into()
 }
 
 /// Implements [lain::traits::BinarySerialize] on the given struct/enum.
@@ -99,10 +99,11 @@ pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// ```
 #[proc_macro_derive(
     BinarySerialize,
-    attributes(bitfield, byteorder, inner_member_serialized_size, serialized_size)
+    attributes(lain)
 )]
 pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    binary_serialize_helper(input)
+    return proc_macro::TokenStream::from(TokenStream::new());
+    //binary_serialize_helper(input)
 }
 
 /// Automatically implements [trait@lain::traits::Mutatable] with basic
@@ -144,8 +145,9 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// let my_struct: Foo = Default::default();
 /// my_struct.mutate()
 /// ```
-#[proc_macro_derive(Mutatable, attributes(fuzzer, bitfield))]
+#[proc_macro_derive(Mutatable, attributes(lain))]
 pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    return proc_macro::TokenStream::from(TokenStream::new());
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = input.ident;
@@ -256,26 +258,27 @@ pub fn variable_size_object_helper(input: proc_macro::TokenStream) -> proc_macro
 
 #[proc_macro_derive(PostFuzzerIteration)]
 pub fn post_fuzzer_iteration(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    return proc_macro::TokenStream::from(TokenStream::new());
+    // let input = parse_macro_input!(input as DeriveInput);
 
-    let name = input.ident;
+    // let name = input.ident;
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    // let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let on_success = get_post_fuzzer_iteration_impls(&name, &input.data);
+    // let on_success = get_post_fuzzer_iteration_impls(&name, &input.data);
 
-    let expanded = quote! {
-        impl #impl_generics ::lain::traits::PostFuzzerIteration for #name #ty_generics #where_clause {
-            fn on_success_for_fields(&self) {
-                #on_success
-            }
-        }
-    };
+    // let expanded = quote! {
+    //     impl #impl_generics ::lain::traits::PostFuzzerIteration for #name #ty_generics #where_clause {
+    //         fn on_success_for_fields(&self) {
+    //             #on_success
+    //         }
+    //     }
+    // };
 
-    // Uncomment to dump the AST
-    debug!("{}", expanded);
+    // // Uncomment to dump the AST
+    // debug!("{}", expanded);
 
-    proc_macro::TokenStream::from(expanded)
+    // proc_macro::TokenStream::from(expanded)
 }
 
 /// Automatically implements [trait@lain::traits::FixupChildren] for the given type. Custom implementations
@@ -283,44 +286,46 @@ pub fn post_fuzzer_iteration(input: proc_macro::TokenStream) -> proc_macro::Toke
 /// all child fields are properly handled.
 #[proc_macro_derive(FixupChildren)]
 pub fn post_mutation(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    return proc_macro::TokenStream::from(TokenStream::new());
+    // let input = parse_macro_input!(input as DeriveInput);
 
-    let name = input.ident;
+    // let name = input.ident;
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    // let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let post_mutation = get_post_mutation_impl(&name, &input.data);
+    // let post_mutation = get_post_mutation_impl(&name, &input.data);
 
-    let expanded = quote! {
-        impl #impl_generics ::lain::traits::FixupChildren for #name #ty_generics #where_clause {
-            fn fixup_children<R: ::lain::rand::Rng>(&mut self, mutator: &mut Mutator<R>) {
-                #post_mutation
-            }
-        }
-    };
+    // let expanded = quote! {
+    //     impl #impl_generics ::lain::traits::FixupChildren for #name #ty_generics #where_clause {
+    //         fn fixup_children<R: ::lain::rand::Rng>(&mut self, mutator: &mut Mutator<R>) {
+    //             #post_mutation
+    //         }
+    //     }
+    // };
 
-    // Uncomment to dump the AST
-    debug!("{}", expanded);
+    // // Uncomment to dump the AST
+    // debug!("{}", expanded);
 
-    proc_macro::TokenStream::from(expanded)
+    // proc_macro::TokenStream::from(expanded)
 }
 
 /// A "catch-all" derive for NewFuzzed, Mutatable, PostFuzzerIteration, FixupChildren, and VariableObjectSize
-#[proc_macro_derive(FuzzerObject, attributes(fuzzer, bitfield, weight))]
+#[proc_macro_derive(FuzzerObject, attributes(lain))]
 pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut base_token_stream = TokenStream::new();
-    base_token_stream.extend(TokenStream::from(new_fuzzed_helper(input.clone())));
-    base_token_stream.extend(TokenStream::from(mutatable_helper(input.clone())));
-    base_token_stream.extend(TokenStream::from(post_fuzzer_iteration(input.clone())));
-    base_token_stream.extend(TokenStream::from(post_mutation(input.clone())));
-    base_token_stream.extend(TokenStream::from(variable_size_object_helper(
-        input.clone(),
-    )));
+    return proc_macro::TokenStream::from(TokenStream::new());
+    // let mut base_token_stream = TokenStream::new();
+    // base_token_stream.extend(TokenStream::from(new_fuzzed_helper(input.clone())));
+    // base_token_stream.extend(TokenStream::from(mutatable_helper(input.clone())));
+    // base_token_stream.extend(TokenStream::from(post_fuzzer_iteration(input.clone())));
+    // base_token_stream.extend(TokenStream::from(post_mutation(input.clone())));
+    // base_token_stream.extend(TokenStream::from(variable_size_object_helper(
+    //     input.clone(),
+    // )));
 
-    // Uncomment to dump the AST
-    debug!("{}", base_token_stream);
+    // // Uncomment to dump the AST
+    // debug!("{}", base_token_stream);
 
-    proc_macro::TokenStream::from(base_token_stream)
+    // proc_macro::TokenStream::from(base_token_stream)
 }
 
 /// Implements `ToPrimitive<u8>` for the given enum.

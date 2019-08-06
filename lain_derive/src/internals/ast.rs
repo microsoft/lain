@@ -1,5 +1,8 @@
 use super::attr;
 use super::Derive;
+use super::Ctxt;
+use syn::punctuated::Punctuated;
+use syn::Token;
 
 /// A source data structure annotated with `#[derive(NewFuzzed)]` and/or `#[derive(Mutatable)]`
 pub struct Container<'a> {
@@ -40,7 +43,7 @@ pub struct Field<'a> {
     pub original: &'a syn::Field,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Style {
     /// Named fields.
     Struct,
@@ -64,12 +67,12 @@ impl<'a> Container<'a> {
                 Data::Enum(enum_from_ast(cx, &data.variants))
             }
             syn::Data::Struct(ref data) => {
-                let (style, fields) = struct_from_ast(cx, &data.variants);
+                let (style, fields) = struct_from_ast(cx, &data.fields);
                 Data::Struct(style, fields)
             }
             syn::Data::Union(_) => {
-                cx.error_spanned_by(item, "lain does not support derive for unions")
-                return None
+                cx.error_spanned_by(item, "lain does not support derive for unions");
+                return None;
             }
         };
 
@@ -86,7 +89,7 @@ impl<'a> Container<'a> {
 }
 
 impl<'a> Data<'a> {
-    pub fn all_fields(&'a self) -> Box<Iterator<Item = &'a Field<'a>> + 'a> {
+    pub fn all_fields(&'a self) -> Box<dyn Iterator<Item = &'a Field<'a>> + 'a> {
         match *self {
             Data::Enum(ref variants) => {
                 Box::new(variants.iter().flat_map(|variant| variant.fields.iter()))
@@ -102,7 +105,7 @@ fn enum_from_ast<'a>(
 ) -> Vec<Variant<'a>> {
     variants.iter().map(|variant| {
         let attrs = attr::Variant::from_ast(cx, variant);
-        let (style, fields) = struct_from_ast(cx, &variant.fields, Some(&attrs));
+        let (style, fields) = struct_from_ast(cx, &variant.fields);
 
         Variant {
             ident: variant.ident.clone(),
@@ -111,34 +114,29 @@ fn enum_from_ast<'a>(
             fields,
             original: variant,
         }
-    }).collect();
+    }).collect()
 }
 
 fn struct_from_ast<'a>(
     cx: &Ctxt,
     fields: &'a syn::Fields,
-    attrs: Option<&attr::Variant>,
 ) -> (Style, Vec<Field<'a>>) {
     match *fields {
         syn::Fields::Named(ref fields) => (
             Style::Struct,
-            fields_from_ast(cx, &fields.named, attrs)
+            fields_from_ast(cx, &fields.named)
         ),
         syn::Fields::Unnamed(ref fields) => (
             Style::Tuple,
-            fields_from_ast(cx, &fields.unnamed, attrs)
+            fields_from_ast(cx, &fields.unnamed)
         ),
-        syn::Fields::Unit(ref fields) => (
-            Style::Unit,
-            Vec::new()
-        ),
+        syn::Fields::Unit => (Style::Unit, Vec::new()),
     }
 }
 
 fn fields_from_ast<'a>(
     cx: &Ctxt,
     fields: &'a Punctuated<syn::Field, Token![,]>,
-    attrs: Option<&attr::Variant>,
 ) -> Vec<Field<'a>> {
     let mut bitfield_bits = 0;
 
@@ -151,12 +149,12 @@ fn fields_from_ast<'a>(
                 Some(ref ident) => syn::Member::Named(ident.clone()),
                 None => syn::Member::Unnamed(i.into()),
             },
-            attrs: attr::Field::from_ast(cx, i, field, attrs),
+            attrs: attr::Field::from_ast(cx, i, field),
             ty: &field.ty,
             original: field,
         };
 
-        if let Some(bits) = field.attrs.bitfield_bits() {
+        if let Some(bits) = field.attrs.bits() {
             field.attrs.set_bit_shift(bitfield_bits);
             bitfield_bits += bits;
 
@@ -183,7 +181,7 @@ fn fields_from_ast<'a>(
         }
 
         field
-    )
+    })
     .collect()
 }
 

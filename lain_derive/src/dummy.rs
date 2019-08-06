@@ -3,8 +3,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use syn;
 use crate::internals::attr::unraw;
 
+/// Wraps the code in a dummy const object. See https://github.com/serde-rs/serde/issues/159#issuecomment-214002626
 pub fn wrap_in_const(
-    serde_path: Option<&syn::Path>,
     trait_: &str,
     ty: &Ident,
     code: TokenStream,
@@ -15,16 +15,11 @@ pub fn wrap_in_const(
         Span::call_site(),
     );
 
-    let use_lain = match lain_path {
-        Some(path) => quote! {
-            use #path as _serde;
-        },
-        None => quote! {
-            #[allow(unknown_lints)]
-            #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-            #[allow(rust_2018_idioms)]
-            extern crate lain as _lain;
-        },
+    let use_lain = quote! {
+        #[allow(unknown_lints)]
+        #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+        #[allow(rust_2018_idioms)]
+        extern crate lain as _lain;
     };
 
     quote! {

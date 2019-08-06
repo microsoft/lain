@@ -24,15 +24,15 @@ mod test
     pub struct TestStruct {
         single_byte: u8,
 
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_1: u8,
-        #[bitfield(backing_type = "u8", bits = 2)]
+        #[lain(bits = 2)]
         bitfield_2: u8,
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_3: u8,
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_4: u8,
-        #[bitfield(backing_type = "u8", bits = 3)]
+        #[lain(bits = 3)]
         bitfield_5: u8,
 
         uint32: u32,
@@ -173,7 +173,7 @@ mod test
     fn test_ignored_fields() {
         #[derive(NewFuzzed, BinarySerialize, Clone)]
         struct IgnoredFieldsStruct {
-            #[fuzzer(ignore = true)]
+            #[lain(ignore = true)]
             ignored: u8,
         }
 
@@ -188,7 +188,7 @@ mod test
     fn test_initializer() {
         #[derive(Default, NewFuzzed, BinarySerialize, Clone)]
         struct InitializedFieldsStruct {
-            #[fuzzer(initializer = "0x41")]
+            #[lain(initializer = "0x41")]
             initialized: u8,
         }
 
@@ -203,7 +203,7 @@ mod test
     fn test_dynamic_array_limits() {
         #[derive(Default, NewFuzzed, Clone, BinarySerialize)]
         struct Foo {
-            #[fuzzer(min = 1, max = 10)]
+            #[lain(min = 1, max = 10)]
             bar: Vec<u32>,
         }
 
@@ -224,7 +224,7 @@ mod test
     fn generic_mutation_test() {
         #[derive(Default, Debug, NewFuzzed, BinarySerialize, Clone)]
         struct Foo {
-            #[fuzzer(min = 1, max = 10)]
+            #[lain(min = 1, max = 10)]
             bar: Vec<u32>,
             baz: u64,
             x: u32,
@@ -367,7 +367,7 @@ mod test
         let expected: [u8; 8] = [0xFF, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD];
 
         #[derive(BinarySerialize)]
-        #[serialized_size(0x4)]
+        #[lain(serialized_size = 0x4)]
         enum MyEnum {
             MyOtherStruct(MyOtherStruct),
         }
@@ -573,7 +573,7 @@ mod test
     fn test_post_mutation_called() {
         #[derive(NewFuzzed, Clone, FixupChildren, BinarySerialize)]
         struct S {
-            #[fuzzer(ignore = true)]
+            #[lain(ignore = true)]
             pub post_mutation_called: bool,
         }
 
@@ -674,7 +674,7 @@ mod test
 
         #[derive(NewFuzzed, BinarySerialize)]
         struct Bar {
-            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            #[lain(min = 0, max = 100, weight_to = "min")]
             c: Vec<u8>,
         }
 
@@ -703,7 +703,7 @@ mod test
 
         #[derive(NewFuzzed, Mutatable, BinarySerialize)]
         struct Bar {
-            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            #[lain(min = 0, max = 100, weight_to = "min")]
             c: Vec<u8>,
         }
 
@@ -736,7 +736,7 @@ mod test
         struct Bar {
             a: u32,
 
-            #[fuzzer(min=0, max=20)]
+            #[lain(min=0, max=20)]
             b: Vec<u8>,
         }
 

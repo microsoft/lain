@@ -1,5 +1,4 @@
 mod ctxt;
-mod utils;
 mod symbol;
 pub mod ast;
 pub mod attr;

@@ -165,7 +165,7 @@ pub struct Field {
 
 impl Field {
     /// Extract out the `#[lain()]` attributes from an item
-    pub fn from_ast(cx: &Ctxt, index: usize, field: &syn::Field, attrs: Option<&Variant>) -> Self {
+    pub fn from_ast(cx: &Ctxt, index: usize, field: &syn::Field) -> Self {
         let mut bits = Attr::none(cx, BITS);
         let mut min = Attr::none(cx, MIN);
         let mut max= Attr::none(cx, MAX);
@@ -256,6 +256,7 @@ impl Field {
         Field {
             name: ident,
             bits: bits.get(),
+            bit_shift: None, // this gets fixed up later
             min: min.get(),
             max: max.get(),
             ignore: ignore.get(),
@@ -318,15 +319,18 @@ impl Field {
 
 /// Represents enum variant information
 pub struct Variant {
-    weight: Option<u64>
+    weight: Option<u64>,
+    ignore: bool,
 }
 
 impl Variant {
     /// Extract out the `#[lain()]` attributes from an enum variant
-    pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
+    pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
         let mut weight = Attr::none(cx, WEIGHT);
+        let mut ignore = BoolAttr::none(cx, IGNORE);
+        let mut ignore_chance = Attr::none(cx, IGNORE_CHANCE);
 
-        for meta_items in item.attrs.iter().filter_map(get_lain_meta_items) {
+        for meta_items in variant.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
                 match meta_item {
                     // `#[lain(weight = 3)]`
@@ -337,17 +341,26 @@ impl Variant {
                             cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for {}", WEIGHT));
                         }
                     }
+                    // `#[lain(ignore)]`
+                    Meta(Word(ref word)) if word == IGNORE => {
+                        ignore.set_true(word);
+                    }
                 }
             }
         }
 
         Variant {
             weight: weight.get(),
+            ignore: ignore.get(),
         }
     }
 
     pub fn weight(&self) -> Option<u64> {
         self.weight.clone()
+    }
+
+    pub fn ignore(&self) -> bool {
+        self.ignore
     }
 }
 
@@ -386,10 +399,10 @@ fn parse_min_max(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<TokenSt
     // For a lit str we don't want to emit the tokens as a string, so we
     // reconstruct it as a TokenStream here
     if let Ok(s) = get_lit_str(cx, attr_name, attr_name, lit) {
-        let Ok(value) = TokenStream::from_str(&s.value()) {
-            Ok(quote_spanned! {m.lit.span() => #value})
+        if let Ok(value) = TokenStream::from_str(&s.value()) {
+            Ok(quote_spanned! {lit.span() => #value})
         } else {
-            cx.error_spanned_by(&m.lit, format!("invalid tokens for {}", MIN));
+            cx.error_spanned_by(lit, format!("invalid tokens for {}", MIN));
             Err(())
         }
     } else if let Int(i) = lit {
