@@ -319,12 +319,8 @@ mod test
             },
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, LittleEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, LittleEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }
@@ -352,19 +348,15 @@ mod test
             },
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, BigEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, BigEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }
 
     #[test]
     fn serializing_union_type() {
-        let expected: [u8; 8] = [0xFF, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD];
+        let expected: [u8; 5] = [0xFF, 0xAA, 0xBB, 0xCC, 0xDD];
 
         #[derive(BinarySerialize)]
         #[lain(serialized_size = 0x4)]
@@ -388,12 +380,8 @@ mod test
             x: 0xAABBCCDD,
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, BigEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, BigEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }

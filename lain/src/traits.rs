@@ -32,13 +32,25 @@ impl<T, U> SerializedSize for T
 where T: ToPrimitive<Output=U>
 {
     #[inline]
-    fn serialized_size(&self) -> usize {
+    default fn serialized_size(&self) -> usize {
         std::mem::size_of::<U>()
     }
 
     #[inline]
-    fn min_nonzero_elements_size() -> usize {
+    default fn min_nonzero_elements_size() -> usize {
         std::mem::size_of::<U>()
+    }
+}
+
+impl SerializedSize for &str {
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        1
     }
 }
 

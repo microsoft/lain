@@ -10,10 +10,11 @@ pub const MAX: Symbol = Symbol("max");
 pub const IGNORE: Symbol = Symbol("ignore");
 pub const IGNORE_CHANCE: Symbol = Symbol("ignore_chance");
 pub const BITS: Symbol = Symbol("bits");
+pub const BITFIELD_TYPE: Symbol = Symbol("bitfield_type");
 pub const BIG_ENDIAN: Symbol = Symbol("big_endian");
 pub const LITTLE_ENDIAN: Symbol = Symbol("little_endian");
 pub const INITIALIZER: Symbol = Symbol("initializer");
-pub const SERIALIZED_SIZE: Symbol = Symbol("initializer");
+pub const SERIALIZED_SIZE: Symbol = Symbol("serialized_size");
 pub const WEIGHT: Symbol = Symbol("weight");
 pub const WEIGHT_TO: Symbol = Symbol("weight_to");
 

@@ -98,6 +98,10 @@ fn mutatable_enum (
     let match_arms = mutatable_enum_visitor(variants, cont_ident);
     let variant_count = match_arms.len();
 
+    if match_arms.is_empty() {
+        return TokenStream::new();
+    }
+
     quote! {
         if mutator.mode() == _lain::mutator::MutatorMode::Havoc {
             *self = Self::new_fuzzed(mutator, parent_constraints);
@@ -108,7 +112,7 @@ fn mutatable_enum (
 
         match *self {
             #(#match_arms)*
-            _ => unreachable!(),
+            _ => { /* these are ignored */ },
         }
     }
 }
@@ -116,6 +120,10 @@ fn mutatable_enum (
 fn mutatable_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
     let (weights, variant_tokens) = mutatable_unit_enum_visitor(variants, cont_ident);
     let variant_count = variant_tokens.len();
+
+    if variant_tokens.is_empty() {
+        return TokenStream::new();
+    }
 
     quote! {
         use _lain::rand::seq::SliceRandom;
@@ -142,6 +150,10 @@ fn mutatable_struct (
 ) -> TokenStream {
     let mutators = mutatable_struct_visitor(fields, cont_ident);
     let prelude = constraints_prelude();
+
+    if mutators.is_empty() {
+        return TokenStream::new();
+    }
 
     let len = mutators.len();
 
@@ -203,6 +215,7 @@ fn mutatable_enum_visitor(
                 #full_ident(#(ref mut #field_identifiers,)*) => {
                     #(#field_mutators)*
                 }
+                _ => { /* these are ignored */ }
             };
 
             Some(match_arm)
@@ -246,6 +259,10 @@ fn new_fuzzed_enum (
     let (weights, new_fuzzed_fields) = new_fuzzed_enum_visitor(variants, cont_ident);
     let variant_count = new_fuzzed_fields.len();
 
+    if new_fuzzed_fields.is_empty() {
+        return quote!{Default::default()};
+    }
+
     let mut match_arms = vec![];
 
     for (i, variant) in new_fuzzed_fields.iter().enumerate() {
@@ -285,7 +302,13 @@ fn new_fuzzed_enum (
 
 fn new_fuzzed_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
     let (weights, variant_tokens) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
+
+    if variant_tokens.is_empty() {
+        return quote!{Default::default()};
+    }
+
     let variant_count = variant_tokens.len();
+
 
     quote! {
         use _lain::rand::seq::SliceRandom;
@@ -372,7 +395,7 @@ fn new_fuzzed_struct_visitor(
     fields
         .iter()
         .map(|field| {
-            let (field_ident, field_ident_string, initializer) = field_initializer(field, "self_");
+            let (field_ident, field_ident_string, initializer) = field_initializer(field, "self");
             let ty = &field.ty;
             let member = &field.member;
 
@@ -393,6 +416,10 @@ fn new_fuzzed_struct_visitor(
 
 fn struct_field_constraints(field: &Field) -> TokenStream {
     let attrs = &field.attrs;
+    if attrs.ignore() || (attrs.initializer().is_some() && !attrs.ignore_chance().is_some()) {
+        return TokenStream::new();
+    }
+
     if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
         let min: TokenStream;
         let max: TokenStream;
@@ -408,7 +435,7 @@ fn struct_field_constraints(field: &Field) -> TokenStream {
 
         let weight_to = attrs.weight_to().unwrap_or(&attr::WeightTo::None);
         quote! {
-            let constraints = Constraints::new();
+            let mut constraints = Constraints::new();
             constraints.min = #min;
             constraints.max = #max;
             constraints.weighted = #weight_to;
@@ -419,7 +446,7 @@ fn struct_field_constraints(field: &Field) -> TokenStream {
     } else {
         quote! {
             let constraints = max_size.as_ref().and_then(|m| {
-                let c = Constraints::new();
+                let mut c = Constraints::new();
                 c.base_object_size_accounted_for = true;
                 c.max_size(*m);
                 Some(c)
@@ -583,7 +610,7 @@ fn new_fuzzed_enum_visitor(
             let initializer = quote! {
                 #(#field_initializers)*
 
-                let value = #full_ident(#(#field_identifiers,)*);
+                let mut value = #full_ident(#(#field_identifiers,)*);
             };
 
             weights.push(variant.attrs.weight().unwrap_or(1));

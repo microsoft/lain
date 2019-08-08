@@ -160,16 +160,17 @@ fn fields_from_ast<'a>(
 
             let mut bits_in_type = 0;
             
-            if is_primitive_type(&field.ty, "u8") {
+            let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
+            if is_primitive_type(bitfield_type, "u8") {
                 bits_in_type = 8
-            } else if is_primitive_type(&field.ty, "u16") {
+            } else if is_primitive_type(bitfield_type, "u16") {
                 bits_in_type = 16
-            } else if is_primitive_type(&field.ty, "u32") {
+            } else if is_primitive_type(bitfield_type, "u32") {
                 bits_in_type = 32
-            } else if is_primitive_type(&field.ty, "u64") {
+            } else if is_primitive_type(bitfield_type, "u64") {
                 bits_in_type = 64
             } else {
-                cx.error_spanned_by(&field.ty, "Unsupported bitfield datatype");
+                cx.error_spanned_by(&field.ty, "Unsupported bitfield datatype. Did you forget to specify `#[lain(backing_type = \"...\")]`?");
                 return field;
             }
 
@@ -185,7 +186,7 @@ fn fields_from_ast<'a>(
     .collect()
 }
 
-fn is_primitive_type(ty: &syn::Type, primitive: &str) -> bool {
+pub fn is_primitive_type(ty: &syn::Type, primitive: &str) -> bool {
     match *ty {
         syn::Type::Path(ref ty) => ty.qself.is_none() && is_primitive_path(&ty.path, primitive),
         _ => false,

@@ -14,7 +14,7 @@ use syn::{parse_macro_input, DeriveInput};
 
 //mod fuzzerobject;
 mod mutations;
-//mod serialize;
+mod serialize;
 mod internals;
 mod dummy;
 
@@ -100,8 +100,8 @@ pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attributes(lain)
 )]
 pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    return proc_macro::TokenStream::from(TokenStream::new());
-    //binary_serialize_helper(input)
+    let input = parse_macro_input!(input as DeriveInput);
+    serialize::expand_binary_serialize(&input).unwrap_or_else(to_compile_errors).into()
 }
 
 /// Automatically implements [trait@lain::traits::Mutatable] with basic

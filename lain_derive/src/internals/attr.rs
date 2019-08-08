@@ -156,6 +156,7 @@ pub struct Field {
     name: String,
     bits: Option<usize>,
     bit_shift: Option<usize>,
+    bitfield_type: Option<syn::Type>,
     min: Option<TokenStream>,
     max: Option<TokenStream>,
     ignore: bool,
@@ -170,6 +171,7 @@ impl Field {
     /// Extract out the `#[lain()]` attributes from an item
     pub fn from_ast(cx: &Ctxt, index: usize, field: &syn::Field) -> Self {
         let mut bits = Attr::none(cx, BITS);
+        let mut bitfield_type = Attr::none(cx, BITFIELD_TYPE);
         let mut min = Attr::none(cx, MIN);
         let mut max= Attr::none(cx, MAX);
         let mut ignore = BoolAttr::none(cx, IGNORE);
@@ -205,6 +207,14 @@ impl Field {
                             bits.set(&m.ident, i.value() as usize);
                         } else {
                             cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for `{}`", BITS));
+                        }
+                    }
+                    // `#[lain(bitfield_type = "u8")]`
+                    Meta(NameValue(ref m)) if m.ident == BITFIELD_TYPE => {
+                        if let Ok(expr) = parse_lit_into_type(&cx, BITFIELD_TYPE, &m.lit) {
+                            bitfield_type.set(&m.ident, expr)
+                        } else {
+                            cx.error_spanned_by(&m.lit, format!("failed to parse `{}` into a type", BITFIELD_TYPE));
                         }
                     }
                     // `#[lain(big_endian)]`
@@ -271,6 +281,7 @@ impl Field {
             name: ident,
             bits: bits.get(),
             bit_shift: None, // this gets fixed up later
+            bitfield_type: bitfield_type.get(),
             min: min.get(),
             max: max.get(),
             ignore: ignore.get(),
@@ -296,6 +307,10 @@ impl Field {
 
     pub fn set_bit_shift(&mut self, shift: usize) {
         self.bit_shift = Some(shift);
+    }
+
+    pub fn bitfield_type(&self) -> Option<&syn::Type> {
+        self.bitfield_type.as_ref()
     }
 
     pub fn min(&self) -> Option<&TokenStream> {
@@ -435,6 +450,17 @@ fn parse_min_max(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<TokenSt
     } else {
         Ok(quote_spanned! {lit.span() => #lit})
     }
+}
+
+fn parse_lit_into_type(
+    cx: &Ctxt,
+    attr_name: Symbol,
+    lit: &syn::Lit,
+) -> Result<syn::Type, ()> {
+    let string = get_lit_str(cx, attr_name, attr_name, lit)?;
+    parse_lit_str(string).map_err(|_| {
+        cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))
+    })
 }
 
 fn parse_lit_into_expr_path(
