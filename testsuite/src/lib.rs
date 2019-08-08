@@ -559,7 +559,7 @@ mod test
 
     #[test]
     fn test_post_mutation_called() {
-        #[derive(NewFuzzed, Clone, FixupChildren, BinarySerialize)]
+        #[derive(NewFuzzed, Clone, BinarySerialize)]
         struct S {
             #[lain(ignore)]
             pub post_mutation_called: bool,
@@ -567,7 +567,7 @@ mod test
 
         impl Fixup for S {
             fn fixup<R: lain::rand::Rng>(&mut self, _mutator: &mut Mutator<R>) {
-                println!("post mutation called!");
+                println!("fixup called");
                 self.post_mutation_called = true;
             }
         }

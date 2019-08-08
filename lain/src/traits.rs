@@ -59,30 +59,17 @@ pub trait Mutatable {
     fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>);
 }
 
-/// Helper trait for calling `self.fixup(mutator)` on all child members.
-pub trait FixupChildren {
-    fn fixup_children<R: Rng>(&mut self, mutator: &mut Mutator<R>);
-}
-
-impl<T> FixupChildren for T {
-    default fn fixup_children<R: Rng>(&mut self, _mutator: &mut Mutator<R>) {
-        // nop - users should derive FixupChildren
-    }
-}
-
 /// Trait used for performing fixups of a data structure when generating a new
 /// struct using [NewFuzzed].
 ///
 /// This trait is useful when you may have dependent data types, such as a "command" struct
 /// that needs to correspond with an enum.
-pub trait Fixup: FixupChildren {
+pub trait Fixup {
     fn fixup<R: Rng>(&mut self, mutator: &mut Mutator<R>);
 }
 
 impl<T> Fixup for T {
-    default fn fixup<R: Rng>(&mut self, mutator: &mut Mutator<R>) {
-        self.fixup_children(mutator);
-    }
+    default fn fixup<R: Rng>(&mut self, mutator: &mut Mutator<R>) { /* nop */ }
 }
 
 #[doc(hidden)]
@@ -100,56 +87,6 @@ pub trait ToPrimitive {
     type Output;
 
     fn to_primitive(&self) -> Self::Output;
-}
-
-/// Trait used for signaling the result of the previous fuzzer iteration.
-///
-/// This may be useful in scenarios where you need to change some state that's persisted and used
-/// between fuzzer iterations.
-pub trait PostFuzzerIterationBase {
-    /// This function will be recursively called on an object when a mutation is considered "succesful"
-    /// to allow internal state management. For example, if instantiating some type of session were succesful,
-    /// the object which holds the session identifier can save it to an identifier pool
-    fn on_success(&self);
-}
-
-/// Trait used for signaling to all children of `self` the result of the previous fuzzer iteration.
-pub trait PostFuzzerIteration: PostFuzzerIterationBase {
-    /// Calls `PostFuzzerIterationBase::on_success(self.#field)` for each `#field` in this struct
-    fn on_success_for_fields(&self);
-}
-
-impl<T> PostFuzzerIterationBase for T {
-    default fn on_success(&self) {
-        // do nothing by default
-        self.on_success_for_fields();
-    }
-}
-
-impl<T> PostFuzzerIterationBase for T
-where
-    T: Deref,
-    T::Target: PostFuzzerIteration,
-{
-    default fn on_success(&self) {
-        (**self).on_success()
-    }
-}
-
-impl<T> PostFuzzerIteration for T {
-    default fn on_success_for_fields(&self) {
-        // do nothing by default
-    }
-}
-
-impl<T> PostFuzzerIteration for T
-where
-    T: Deref,
-    T::Target: PostFuzzerIteration,
-{
-    default fn on_success_for_fields(&self) {
-        (**self).on_success_for_fields()
-    }
 }
 
 /// Trait for objects to derive in order to specify whether or not they are variable-size.
