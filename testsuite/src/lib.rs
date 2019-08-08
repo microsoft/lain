@@ -356,7 +356,7 @@ mod test
 
     #[test]
     fn serializing_union_type() {
-        let expected: [u8; 5] = [0xFF, 0xAA, 0xBB, 0xCC, 0xDD];
+        let expected: [u8; 8] = [0xFF, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD];
 
         #[derive(BinarySerialize)]
         #[lain(serialized_size = 0x4)]

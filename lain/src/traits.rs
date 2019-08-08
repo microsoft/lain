@@ -14,7 +14,7 @@ use std::ops::Deref;
 /// predetermined way.
 pub trait BinarySerialize {
     /// Pushes all fields in `self` to a buffer
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W);
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize;
 }
 
 /// A trait to represent the output size (in bytes) of an object when serialized to binary.

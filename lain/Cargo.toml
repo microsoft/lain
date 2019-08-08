@@ -14,7 +14,7 @@ license = "MIT"
 rand = { version = "0.7", features = ["small_rng"] }
 byteorder = "1.2"
 mashup = "0.1"
-lain_derive = { version = "0.1", path = "../lain_derive" }
+lain_derive = { version = "0.2", path = "../lain_derive" }
 log = "0.4"
 num-traits = "0.2"
 num-derive = "0.2"

@@ -55,11 +55,23 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     let impl_block = quote! {
         #[automatically_derived]
         impl #impl_generics #lain::traits::BinarySerialize for #ident #ty_generics #where_clause {
-            fn binary_serialize<W: std::io::Write, E: #lain::byteorder::ByteOrder>(&self, buffer: &mut W) {
+            fn binary_serialize<W: std::io::Write, E: #lain::byteorder::ByteOrder>(&self, buffer: &mut W) -> usize {
                 use #lain::traits::SerializedSize;
                 use #lain::byteorder::{LittleEndian, BigEndian, WriteBytesExt};
 
+                let mut bytes_written = 0;
+
                 #serialize_body
+
+                let padding_bytes = self.serialized_size() - bytes_written;
+                if padding_bytes != 0 {
+                    let null = 0x0u8;
+                    for _i in 0..padding_bytes {
+                        bytes_written += null.binary_serialize::<_, E>(buffer);
+                    }
+                }
+
+                bytes_written
             }
         }
 
@@ -141,7 +153,7 @@ fn binary_serialize_enum (
 
 fn binary_serialize_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
     quote! {
-        <<#cont_ident as _lain::traits::ToPrimitive>::Output>::binary_serialize::<_, E>(&self.to_primitive(), buffer);
+        bytes_written += <<#cont_ident as _lain::traits::ToPrimitive>::Output>::binary_serialize::<_, E>(&self.to_primitive(), buffer);
     }
 }
 
@@ -228,7 +240,7 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         };
 
         if bits + bit_shift == type_total_bits {
-            bitfield_setter.extend(quote_spanned!{field.ty.span() => <#ty>::binary_serialize::<_, #endian>(&(bitfield as #ty), buffer);});
+            bitfield_setter.extend(quote_spanned!{field.ty.span() => bytes_written += <#ty>::binary_serialize::<_, #endian>(&(bitfield as #ty), buffer);});
         }
 
         bitfield_setter
@@ -236,11 +248,11 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         if let syn::Type::Array(ref a) = ty {
             // TODO: Change this once const generics are stabilized
             quote! {
-                #value_ident.binary_serialize::<_, #endian>(buffer);
+                bytes_written += #value_ident.binary_serialize::<_, #endian>(buffer);
             }
         } else {
             quote! {
-                <#ty>::binary_serialize::<_, #endian>(#borrow#value_ident, buffer);
+                bytes_written += <#ty>::binary_serialize::<_, #endian>(#borrow#value_ident, buffer);
             }
         }
     };

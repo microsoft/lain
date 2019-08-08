@@ -5,7 +5,7 @@ authors = ["Lain Devs"]
 edition = "2018"
 
 [dependencies]
-lain = { version = "0.1", path = "../lain" }
+lain = { path = "../lain" }
 
 [dev-dependencies]
 

@@ -145,41 +145,44 @@ impl<T> BinarySerialize for Vec<T>
 where
     T: BinarySerialize,
 {
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         let inner_ref: &[T] = self.as_ref();
-        inner_ref.binary_serialize::<_, E>(buffer);
+        inner_ref.binary_serialize::<_, E>(buffer)
     }
 }
 
 impl BinarySerialize for bool {
     #[inline(always)]
-    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
+    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         // unsafe code here for non-binary booleans. i.e. when we do unsafe mutations
         // sometimes a bool is represented as 3 or some other non-0/1 number
         let value = unsafe { *((self as *const bool) as *const u8) };
 
-        buffer.write_u8(value).ok();
+        buffer.write_u8(value).unwrap();
+        std::mem::size_of::<u8>()
     }
 }
 
 impl BinarySerialize for i8 {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
-        buffer.write_i8(*self as i8).ok();
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        buffer.write_i8(*self as i8).unwrap();
+        std::mem::size_of::<i8>()
     }
 }
 
 impl BinarySerialize for u8 {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
-        buffer.write_u8(*self as u8).ok();
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        buffer.write_u8(*self as u8).unwrap();
+        std::mem::size_of::<u8>()
     }
 }
 
 impl BinarySerialize for [u8] {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
-        buffer.write(&self).ok();
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize{
+        buffer.write(&self).unwrap()
     }
 }
 
@@ -188,10 +191,13 @@ where
     T: BinarySerialize,
 {
     #[inline(always)]
-    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
+    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        let mut bytes_written = 0;
         for item in self.iter() {
-            item.binary_serialize::<W, E>(buffer);
+            bytes_written += item.binary_serialize::<W, E>(buffer);
         }
+
+        bytes_written
     }
 }
 
@@ -200,13 +206,13 @@ where
     T: BinarySerialize,
     I: BinarySerialize + Clone,
 {
-    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
+    default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         match *self {
             UnsafeEnum::Invalid(ref value) => {
-                value.binary_serialize::<_, E>(buffer);
+                value.binary_serialize::<_, E>(buffer)
             }
             UnsafeEnum::Valid(ref value) => {
-                value.binary_serialize::<_, E>(buffer);
+                value.binary_serialize::<_, E>(buffer)
             }
         }
     }
@@ -214,8 +220,8 @@ where
 
 impl BinarySerialize for String {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
-        self.as_bytes().binary_serialize::<_, E>(buffer);
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        self.as_bytes().binary_serialize::<_, E>(buffer)
     }
 }
 
@@ -224,17 +230,17 @@ impl BinarySerialize for String {
 /// bool (specifically) in the future. See: https://github.com/rust-lang/rust/issues/45542
 impl BinarySerialize for &str {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
-        self.as_bytes().binary_serialize::<_, E>(buffer);
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        self.as_bytes().binary_serialize::<_, E>(buffer)
     }
 }
 
-macro_rules! impl_buffer_pushable {
+macro_rules! impl_binary_serialize {
     ( $($name:ident),* ) => {
         $(
             impl BinarySerialize for $name {
                 #[inline(always)]
-                fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) {
+                fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
                     // need to use mashup here to do write_(u8|u16|...) since you can't concat
                     // idents otherwise
                     mashup! {
@@ -242,15 +248,16 @@ macro_rules! impl_buffer_pushable {
                     }
 
                     m! {
-                        buffer."method_name"::<E>(*self as $name).ok();
+                        buffer."method_name"::<E>(*self as $name).unwrap();
                     }
+                    std::mem::size_of::<$name>()
                 }
             }
         )*
     }
 }
 
-impl_buffer_pushable!(i64, u64, i32, u32, i16, u16, f32, f64);
+impl_binary_serialize!(i64, u64, i32, u32, i16, u16, f32, f64);
 
 macro_rules! impl_serialized_size {
     ( $($name:ident),* ) => {
