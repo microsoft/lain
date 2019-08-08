@@ -76,6 +76,7 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
         }
 
         // TODO: Split this into its own derive
+        #[automatically_derived]
         impl #impl_generics #lain::traits::SerializedSize for #ident #ty_generics #where_clause {
             #[inline]
             fn serialized_size(&self) -> usize {
