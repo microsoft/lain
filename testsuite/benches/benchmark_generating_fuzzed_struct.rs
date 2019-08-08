@@ -8,7 +8,7 @@ use criterion::*;
 use lain::prelude::*;
 use lain::rand::SeedableRng;
 
-#[derive(Debug, Default, Clone, FuzzerObject, BinarySerialize)]
+#[derive(Debug, Default, Clone, NewFuzzed, Mutatable, BinarySerialize)]
 pub struct NestedStruct {
     test1: u32,
     nested: TestStruct,
@@ -24,7 +24,7 @@ pub struct NestedStruct {
     test11: [u8; 32],
 }
 
-#[derive(Debug, Default, Clone, FuzzerObject, BinarySerialize)]
+#[derive(Debug, Default, Clone, NewFuzzed, Mutatable, BinarySerialize)]
 pub struct TestStruct {
     single_byte: u8,
 
