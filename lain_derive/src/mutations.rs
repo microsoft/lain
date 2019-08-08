@@ -39,7 +39,6 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
     };
 
     let data = dummy::wrap_in_const("MUTATABLE", ident, impl_block);
-    println!("{}", data);
 
     Ok(data)
 }
@@ -75,7 +74,6 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     };
 
     let data = dummy::wrap_in_const("NEWFUZZED", ident, impl_block);
-    println!("{}", data);
 
     Ok(data)
 }
@@ -414,10 +412,12 @@ fn new_fuzzed_struct_visitor(
         .collect()
 }
 
-fn struct_field_constraints(field: &Field) -> TokenStream {
+fn struct_field_constraints(field: &Field, for_mutation: bool) -> TokenStream {
     let attrs = &field.attrs;
-    if attrs.ignore() || (attrs.initializer().is_some() && !attrs.ignore_chance().is_some()) {
-        return TokenStream::new();
+    if !for_mutation {
+        if attrs.ignore() || (attrs.initializer().is_some() && !attrs.ignore_chance().is_some()) {
+            return TokenStream::new(); 
+        }
     }
 
     if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
@@ -459,8 +459,8 @@ fn option_to_tokens<T: ToTokens + Spanned>(opt: Option<&T>) -> TokenStream {
     opt.map_or_else(|| quote!{None}, |o| quote_spanned!{opt.span() => Some(#o)})
 }
 
-fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, String, TokenStream) {
-    let default_constraints = struct_field_constraints(field);
+fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, String, TokenStream) {
+    let default_constraints = struct_field_constraints(field, false);
     let ty = &field.ty;
     let field_ident = &field.member;
     let field_ident_string = match field.member{
@@ -468,7 +468,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let value_ident = syn::Ident::new(&format!("{}_{}", name_prefix, field_ident_string), field.original.span());
+    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
 
     let default_initializer = quote! {
         <#ty>::new_fuzzed(mutator, constraints.as_ref())
@@ -496,10 +496,20 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
         }
     };
 
+    let inc_max_size = increment_max_size(&ty, &value_ident, &field_ident_string);
     let initializer = quote! {
         #default_constraints 
 
         #initializer
+
+        #inc_max_size
+    };
+
+    (value_ident, field_ident_string, initializer)
+}
+
+fn increment_max_size(ty: &syn::Type, value_ident: &TokenStream, field_ident_string: &str) -> TokenStream {
+    quote! {
         if <#ty>::is_variable_size() {
             if let Some(ref mut max_size) = max_size {
                 if #value_ident.serialized_size() > *max_size {
@@ -508,15 +518,20 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (syn::Ident, S
                 } else {
                     *max_size -= #value_ident.serialized_size();
                 }
+
+                let size_delta = <#ty>::max_default_object_size() - <#ty>::min_nonzero_elements_size();
+
+                // Give back the extra size
+                if size_delta > 0 {
+                    *max_size += #value_ident.min_enum_variant_size();
+                }
             }
         }
-    };
-
-    (value_ident, field_ident_string, initializer)
+    }
 }
 
 fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool) -> (TokenStream, String, TokenStream) {
-    let default_constraints = struct_field_constraints(field);
+    let default_constraints = struct_field_constraints(field, true);
     let ty = &field.ty;
     let field_ident = &field.member;
     let field_ident_string = match field.member{
@@ -543,21 +558,14 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
         }
     };
 
+    let inc_max_size = increment_max_size(&ty, &value_ident, &field_ident_string);
+
     let initializer = quote! {
         #default_constraints 
 
         #mutator_stmts
 
-        if <#ty>::is_variable_size() {
-            if let Some(ref mut max_size) = max_size {
-                if #value_ident.serialized_size() > *max_size {
-                    warn!("Max size provided to {} object is likely smaller than min object size", #field_ident_string);
-                    *max_size = 0;
-                } else {
-                    *max_size -= #value_ident.serialized_size();
-                }
-            }
-        }
+        #inc_max_size
     };
 
     (value_ident, field_ident_string, initializer)
@@ -629,7 +637,7 @@ fn constraints_prelude() -> TokenStream {
         // been accounted for by the caller, which may be an object containing this.
         let parent_constraints = parent_constraints.and_then(|c| {
             let mut c = c.clone();
-            //c.account_for_base_object_size::<Self>();
+            c.account_for_base_object_size::<Self>();
 
             Some(c)
         });

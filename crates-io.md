@@ -38,16 +38,16 @@ use lain::hexdump;
 struct MyStruct {
     field_1: u8,
 
-    #[bitfield(backing_type = "u8", bits = 3)]
+    #[lain(bits = 3)]
     field_2: u8,
 
-    #[bitfield(backing_type = "u8", bits = 5)]
+    #[lain(bits = 5)]
     field_3: u8,
 
-    #[fuzzer(min = 5, max = 10000)]
+    #[lain(min = 5, max = 10000)]
     field_4: u32,
 
-    #[fuzzer(ignore)]
+    #[lain(ignore)]
     ignored_field: u64,
 }
 

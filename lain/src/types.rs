@@ -158,7 +158,7 @@ impl<T: Bounded + Debug> Constraints<T> {
     pub fn account_for_base_object_size<'a, U: crate::traits::SerializedSize>(&'a mut self) -> &'a mut Constraints<T> {
         if !self.base_object_size_accounted_for {
             if let Some(ref mut max_size) = self.max_size {
-                *max_size -= U::min_nonzero_elements_size();
+                *max_size -= U::max_default_object_size();
             }
             self.base_object_size_accounted_for = true;
         }

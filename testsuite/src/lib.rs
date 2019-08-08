@@ -774,6 +774,30 @@ mod test
         }
     }
 
+    #[test]
+    fn failed_docs_testcase() {
+        #[derive(Debug, Mutatable, NewFuzzed, BinarySerialize)]
+        struct MyStruct {
+            field_1: u8,
+
+            #[lain(bits = 3)]
+            field_2: u8,
+
+            #[lain(bits = 5)]
+            field_3: u8,
+
+            #[lain(min = 5, max = 10000)]
+            field_4: u32,
+
+            #[lain(ignore)]
+            ignored_field: u64,
+        }
+
+        let mut mutator = get_mutator();
+
+        println!("{:?}", MyStruct::new_fuzzed(&mut mutator, None));
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

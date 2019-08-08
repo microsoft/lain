@@ -8,10 +8,19 @@ use crate::internals::{Ctxt, Derive, attr};
 use crate::internals::ast::{Container, Data, Field, Variant, Style, is_primitive_type};
 use crate::dummy;
 
+struct SerializedSizeBodies {
+    serialized_size: TokenStream,
+    min_nonzero_elements_size: TokenStream,
+    max_default_object_size: TokenStream,
+    min_enum_variant_size: TokenStream,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 enum SerializedSizeVisitorType {
     SerializedSize,
     MinNonzeroElements,
+    MaxDefaultObjectSize,
+    MinEnumVariantSize,
 }
 
 pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
@@ -27,9 +36,14 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let serialize_body = binary_serialize_body(&cont);
-    let (serialized_size_body, min_nonzero_elements_body) = if let Some(size) = cont.attrs.serialized_size(){
+    let SerializedSizeBodies { serialized_size, min_nonzero_elements_size, max_default_object_size, min_enum_variant_size } = if let Some(size) = cont.attrs.serialized_size() {
         let size = quote!{#size};
-        (size.clone(), size)
+        SerializedSizeBodies {
+            serialized_size: size.clone(),
+            min_nonzero_elements_size: size.clone(),
+            max_default_object_size: size.clone(),
+            min_enum_variant_size: size,
+        }
     } else {
         serialized_size_body(&cont)
     };
@@ -55,7 +69,7 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
             fn serialized_size(&self) -> usize {
                 use #lain::traits::SerializedSize;
                 #lain::log::debug!("getting serialized size of {}", #ident_as_string);
-                let size = #serialized_size_body;
+                let size = #serialized_size;
                 #lain::log::debug!("size of {} is 0x{:02X}", #ident_as_string, size);
 
                 return size;
@@ -63,13 +77,22 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
 
             #[inline]
             fn min_nonzero_elements_size() -> usize {
-                #min_nonzero_elements_body
+                #min_nonzero_elements_size
+            }
+
+            #[inline]
+            fn max_default_object_size() -> usize {
+                #max_default_object_size
+            }
+
+            #[inline]
+            fn min_enum_variant_size(&self) -> usize {
+                #min_enum_variant_size
             }
         }
     };
 
     let data = dummy::wrap_in_const("BINARYSERIALIZE", ident, impl_block);
-    println!("{}", data);
 
     Ok(data)
 }
@@ -83,12 +106,20 @@ fn binary_serialize_body(cont: &Container) -> TokenStream {
     }
 }
 
-fn serialized_size_body(cont: &Container) -> (TokenStream, TokenStream) {
+fn serialized_size_body(cont: &Container) -> SerializedSizeBodies {
     match cont.data {
         Data::Enum(ref variants) if variants[0].style != Style::Unit => serialized_size_enum(variants, &cont.attrs, &cont.ident),
         Data::Enum(ref variants) => serialized_size_unit_enum(variants, &cont.attrs, &cont.ident),
         Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => serialized_size_struct(fields, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Unit, ref fields) => (quote!{0}, quote!{0}),
+        Data::Struct(Style::Unit, ref fields) => {
+            let zero_size = quote!{0};
+            SerializedSizeBodies {
+                serialized_size: zero_size.clone(),
+                min_nonzero_elements_size: zero_size.clone(),
+                max_default_object_size: zero_size.clone(),
+                min_enum_variant_size: zero_size,
+            }
+        }
     }
 }
 
@@ -253,9 +284,11 @@ fn serialized_size_enum (
     variants: &[Variant],
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
-) ->  (TokenStream, TokenStream) {
+) ->  SerializedSizeBodies {
     let match_arms = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::SerializedSize);
     let nonzero_variants = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinNonzeroElements);
+    let max_obj = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MaxDefaultObjectSize);
+    let min_variant = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinEnumVariantSize);
 
     let serialized_size = quote! {
         match *self {
@@ -265,27 +298,52 @@ fn serialized_size_enum (
     
     let min_nonzero = quote! {*[#(#nonzero_variants,)*].iter().min_by(|a, b| a.cmp(b)).unwrap()};
 
-    (serialized_size, min_nonzero)
+    let max_default = quote! {*[#(#max_obj,)*].iter().max_by(|a, b| a.cmp(b)).unwrap()};
+
+    let min_variant = quote! {
+        match *self {
+            #(#min_variant)*
+        }
+    };
+
+    SerializedSizeBodies {
+        serialized_size,
+        min_nonzero_elements_size: min_nonzero,
+        max_default_object_size: max_default,
+        min_enum_variant_size: min_variant,
+    }
 }
 
-fn serialized_size_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> (TokenStream, TokenStream) {
+fn serialized_size_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> SerializedSizeBodies {
     let size = quote! {
         std::mem::size_of::<<#cont_ident as _lain::traits::ToPrimitive>::Output>()
     };
 
-    (size.clone(), size)
+    SerializedSizeBodies {
+        serialized_size: size.clone(),
+        min_nonzero_elements_size: size.clone(),
+        max_default_object_size: size.clone(),
+        min_enum_variant_size: size,
+    }
 }
 
 fn serialized_size_struct (
     fields: &[Field],
     cattrs: &attr::Container,
     cont_ident: &syn::Ident,
-) -> (TokenStream, TokenStream) {
+) -> SerializedSizeBodies {
     let serialized_size = serialized_size_struct_visitor(fields, cont_ident, SerializedSizeVisitorType::SerializedSize);
 
     let min_nonzero = serialized_size_struct_visitor(fields, cont_ident, SerializedSizeVisitorType::MinNonzeroElements);
 
-    (quote! {0 #(+#serialized_size)* }, quote! { 0 #(+#min_nonzero)* })
+    let max_default = serialized_size_struct_visitor(fields, cont_ident, SerializedSizeVisitorType::MaxDefaultObjectSize);
+
+    SerializedSizeBodies {
+        serialized_size: quote! {0 #(+#serialized_size)* },
+        min_nonzero_elements_size: quote! { 0 #(+#min_nonzero)* },
+        max_default_object_size: quote! {Self::min_nonzero_elements_size()},
+        min_enum_variant_size: quote! {Self::min_nonzero_elements_size()},
+    }
 }
 
 fn serialized_size_struct_visitor(
@@ -345,23 +403,39 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
         // kind of a hack but only emit the size of the bitfield once we've reached
         // the last item in the bitfield
         if bits + bit_shift == type_total_bits {
-            if visitor_type == SerializedSizeVisitorType::SerializedSize {
-                quote!{_lain::traits::SerializedSize::serialized_size(#bitfield_value)}
-            } else {
-                quote!{<#bitfield_type>::min_nonzero_elements_size()}
+            match visitor_type {
+                SerializedSizeVisitorType::SerializedSize => quote!{_lain::traits::SerializedSize::serialized_size(#bitfield_value)},
+                SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize => quote!{<#bitfield_type>::min_nonzero_elements_size()},
+                SerializedSizeVisitorType::MaxDefaultObjectSize => quote!{<#bitfield_type>::max_default_object_size()},
             }
         } else {
             quote!{0}
         }
     } else {
-        if visitor_type == SerializedSizeVisitorType::SerializedSize {
-            quote! {
-                _lain::traits::SerializedSize::serialized_size(#borrow#value_ident)
+        match visitor_type {
+            SerializedSizeVisitorType::SerializedSize => quote!{_lain::traits::SerializedSize::serialized_size(#borrow#value_ident)},
+            SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize  => {
+                match ty {
+                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
+                        let min = field.attrs.min().unwrap();
+                        quote!{ <#ty>::min_nonzero_elements_size() * #min }
+                    },
+                    _ => {
+                            quote!{ (<#ty>::min_nonzero_elements_size() ) }
+                    }
+                }
             }
-        } else {
-            quote! {
-                <#ty>::min_nonzero_elements_size()
-            }
+            SerializedSizeVisitorType::MaxDefaultObjectSize => {
+                match ty {
+                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
+                        let min = field.attrs.min().unwrap();
+                        quote!{ <#ty>::max_default_object_size() * #min }
+                    },
+                    _ => {
+                            quote!{ (<#ty>::max_default_object_size() ) }
+                    }
+                }
+            },
         }
     };
 
@@ -388,14 +462,15 @@ fn serialized_size_enum_visitor(
             })
             .collect();
 
-            if visitor_type == SerializedSizeVisitorType::SerializedSize {
-                quote! {
-                    #full_ident(#(ref #field_identifiers,)*) => {
-                        0 #(+#field_sizes)*
+            match visitor_type {
+                SerializedSizeVisitorType::SerializedSize | SerializedSizeVisitorType::MinEnumVariantSize  => {
+                    quote! {
+                        #full_ident(#(ref #field_identifiers,)*) => {
+                            0 #(+#field_sizes)*
+                        }
                     }
                 }
-            } else {
-                quote! {
+                _ => quote! {
                     0 #(+#field_sizes)*
                 }
             }

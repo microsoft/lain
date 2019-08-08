@@ -26,31 +26,17 @@ pub trait SerializedSize {
     /// the smallest size that a data type with a dynamic-sized member (e.g. Vec or String)
     /// may be
     fn min_nonzero_elements_size() -> usize;
-}
 
-impl<T, U> SerializedSize for T
-where T: ToPrimitive<Output=U>
-{
-    #[inline]
-    default fn serialized_size(&self) -> usize {
-        std::mem::size_of::<U>()
+    /// Maximum size in bytes of this data type with *the minimum amount of elements*. This is useful
+    /// for determining the maximum size that a data type with a dynamic-sized member (e.g. Vec or String)
+    /// may be within an enum with struct members. 
+    fn max_default_object_size() -> usize {
+        Self::min_nonzero_elements_size()
     }
 
-    #[inline]
-    default fn min_nonzero_elements_size() -> usize {
-        std::mem::size_of::<U>()
-    }
-}
-
-impl SerializedSize for &str {
-    #[inline]
-    fn serialized_size(&self) -> usize {
-        self.len()
-    }
-
-    #[inline]
-    fn min_nonzero_elements_size() -> usize {
-        1
+    /// Minimum size of the selected enum variant.
+    fn min_enum_variant_size(&self) -> usize {
+        Self::min_nonzero_elements_size()
     }
 }
 

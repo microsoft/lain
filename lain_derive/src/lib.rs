@@ -110,9 +110,9 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// # Notes
 ///
 /// - Any bitfields will automatically be set within the appropriate ranges.
-/// - Min/max values for primitives can be specified using `#[fuzzer(min = 10, max = 20)]`.
-/// - Fields can be ignored using #[fuzzer(ignore)].
-/// - Custom initializers can be specified using #[fuzzer(initializer = "my_initializer_func()")]
+/// - Min/max values for primitives can be specified using `#[lain(min = 10, max = 20)]`.
+/// - Fields can be ignored using #[lain(ignore)].
+/// - Custom initializers can be specified using #[lain(initializer = "my_initializer_func()")]
 ///
 /// # Example
 ///
@@ -130,11 +130,11 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// #[derive(Default, Mutatable)]
 /// struct Foo {
 ///     field1: u8,
-///     #[bitfield(7)]
+///     #[lain(bits = 7)]
 ///     field2: u8,
-///     #[bitfield(1)]
+///     #[lain(bits = 1)]
 ///     field3: u8,
-///     #[fuzzer(max = 300)]
+///     #[lain(max = 300)]
 ///     field4: u32,
 ///     choice_field: ChoiceValue,
 /// }

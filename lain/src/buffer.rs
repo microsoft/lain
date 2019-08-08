@@ -28,6 +28,11 @@ where
     fn min_nonzero_elements_size() -> usize {
         T::min_nonzero_elements_size()
     }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        T::max_default_object_size()
+    }
 }
 
 macro_rules! impl_serialized_size_array {
@@ -53,6 +58,11 @@ macro_rules! impl_serialized_size_array {
                 #[inline]
                 fn min_nonzero_elements_size() -> usize {
                     T::min_nonzero_elements_size() * $size
+                }
+
+                #[inline]
+                fn max_default_object_size() -> usize {
+                    T::max_default_object_size() * $size
                 }
             }
         )*
@@ -88,18 +98,28 @@ where
     fn min_nonzero_elements_size() -> usize {
         T::min_nonzero_elements_size()
     }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        T::max_default_object_size()
+    }
 }
 
 impl SerializedSize for str {
     #[inline]
     fn serialized_size(&self) -> usize {
         trace!("getting serialized size of str");
-        self.as_bytes().len()
+        self.len()
     }
 
     #[inline]
     fn min_nonzero_elements_size() -> usize {
-        std::mem::size_of::<char>()
+        1
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        1
     }
 }
 
@@ -107,12 +127,17 @@ impl SerializedSize for String {
     #[inline]
     fn serialized_size(&self) -> usize {
         trace!("getting serialized size of String");
-        self.as_bytes().len()
+        self.len()
     }
 
     #[inline]
     fn min_nonzero_elements_size() -> usize {
-        std::mem::size_of::<char>()
+        1
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        1
     }
 }
 
@@ -240,9 +265,50 @@ macro_rules! impl_serialized_size {
                 fn min_nonzero_elements_size() -> usize {
                     std::mem::size_of::<$name>()
                 }
+
+                #[inline]
+                fn max_default_object_size() -> usize {
+                    std::mem::size_of::<$name>()
+                }
             }
         )*
     }
 }
 
 impl_serialized_size!(i64, u64, i32, u32, i16, u16, f32, f64, u8, i8, bool);
+
+impl<T, U> SerializedSize for T
+where T: ToPrimitive<Output=U>
+{
+    #[inline]
+    default fn serialized_size(&self) -> usize {
+        std::mem::size_of::<U>()
+    }
+
+    #[inline]
+    default fn min_nonzero_elements_size() -> usize {
+        std::mem::size_of::<U>()
+    }
+
+    #[inline]
+    default fn max_default_object_size() -> usize {
+        std::mem::size_of::<U>()
+    }
+}
+
+impl SerializedSize for &str {
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        1
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        1
+    }
+}

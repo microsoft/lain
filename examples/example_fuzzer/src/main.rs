@@ -35,7 +35,7 @@ struct PacketData {
     offset: u64,
     length: u64,
 
-    #[fuzzer(min = 0, max = 10)]
+    #[lain(min = 0, max = 10)]
     data: Vec<u8>,
 }
 
