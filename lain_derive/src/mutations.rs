@@ -16,13 +16,13 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
         None => return Err(ctx.check().unwrap_err()),
     };
 
+    ctx.check()?;
+
     let ident = &cont.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let body = mutatable_body(&cont);
     let lain = cont.attrs.lain_path();
-
-    ctx.check()?;
 
     let impl_block = quote! {
         #[automatically_derived]
@@ -51,13 +51,13 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
         None => return Err(ctx.check().unwrap_err()),
     };
 
+    ctx.check()?;
+
     let ident = &cont.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let body = new_fuzzed_body(&cont);
     let lain = cont.attrs.lain_path();
-
-    ctx.check()?;
 
     let impl_block = quote! {
         #[automatically_derived]

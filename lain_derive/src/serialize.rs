@@ -31,6 +31,8 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
         None => return Err(ctx.check().unwrap_err()),
     };
 
+    ctx.check()?;
+
     let ident = &cont.ident;
     let ident_as_string = ident.to_string();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -49,8 +51,6 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     };
 
     let lain = cont.attrs.lain_path();
-
-    ctx.check()?;
 
     let impl_block = quote! {
         #[automatically_derived]
@@ -106,6 +106,7 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     };
 
     let data = dummy::wrap_in_const("BINARYSERIALIZE", ident, impl_block);
+    println!("{}", data);
 
     Ok(data)
 }
@@ -181,9 +182,7 @@ fn binary_serialize_struct_visitor(
         .map(|field| {
             let (_field_ident, _field_ident_string, serializer) = field_serializer(field, "self.", false);
 
-            quote! {
-                #serializer
-            }
+            serializer
         })
         .collect()
 }
@@ -220,11 +219,11 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
 
         let type_total_bits = if is_primitive_type(bitfield_type, "u8") {
             8
-        } else if is_primitive_type(&field.ty, "u16") {
+        } else if is_primitive_type(&bitfield_type, "u16") {
             16
-        } else if is_primitive_type(&field.ty, "u32") {
+        } else if is_primitive_type(&bitfield_type, "u32") {
             32
-        } else if is_primitive_type(&field.ty, "u64") {
+        } else if is_primitive_type(&bitfield_type, "u64") {
             64
         } else {
             panic!("got to field_serialize with an unsupported bitfield type. ensure that checks in ast code are correct");
@@ -233,7 +232,7 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         let bitfield_value = if field.attrs.bitfield_type().is_some() {
             quote_spanned! {field.ty.span() => #value_ident.to_primitive()}
         } else {
-            quote!{#value_ident}
+            quote_spanned!{field.original.span() => #value_ident}
         };
 
         let mut bitfield_setter = quote_spanned!{ field.ty.span() =>
@@ -241,18 +240,18 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         };
 
         if bits + bit_shift == type_total_bits {
-            bitfield_setter.extend(quote_spanned!{field.ty.span() => bytes_written += <#ty>::binary_serialize::<_, #endian>(&(bitfield as #ty), buffer);});
+            bitfield_setter.extend(quote_spanned!{field.ty.span() => bytes_written += <#bitfield_type>::binary_serialize::<_, #endian>(&(bitfield as #bitfield_type), buffer);});
         }
 
         bitfield_setter
     } else {
         if let syn::Type::Array(ref a) = ty {
             // TODO: Change this once const generics are stabilized
-            quote! {
+            quote_spanned! { field.original.span() =>
                 bytes_written += #value_ident.binary_serialize::<_, #endian>(buffer);
             }
         } else {
-            quote! {
+            quote_spanned! { field.original.span() =>
                 bytes_written += <#ty>::binary_serialize::<_, #endian>(#borrow#value_ident, buffer);
             }
         }
@@ -369,9 +368,7 @@ fn serialized_size_struct_visitor(
         .map(|field| {
             let (_field_ident, _field_ident_string, serialized_size) = field_serialized_size(field, "self.", false, visitor_type);
 
-            quote! {
-                #serialized_size
-            }
+            serialized_size
         })
         .collect()
 }
@@ -408,33 +405,33 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
         };
 
         let bitfield_value = if field.attrs.bitfield_type().is_some() {
-            quote_spanned! {field.ty.span() => #value_ident.to_primitive()}
+            quote_spanned! {field.original.span() => #borrow#value_ident.to_primitive()}
         } else {
-            quote!{#borrow#value_ident}
+            quote_spanned!{ field.original.span() => #borrow#value_ident}
         };
 
         // kind of a hack but only emit the size of the bitfield once we've reached
         // the last item in the bitfield
         if bits + bit_shift == type_total_bits {
             match visitor_type {
-                SerializedSizeVisitorType::SerializedSize => quote!{_lain::traits::SerializedSize::serialized_size(#bitfield_value)},
-                SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize => quote!{<#bitfield_type>::min_nonzero_elements_size()},
-                SerializedSizeVisitorType::MaxDefaultObjectSize => quote!{<#bitfield_type>::max_default_object_size()},
+                SerializedSizeVisitorType::SerializedSize => quote_spanned!{field.original.span() => _lain::traits::SerializedSize::serialized_size(#bitfield_value)},
+                SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize => quote_spanned!{field.original.span() => <#bitfield_type>::min_nonzero_elements_size()},
+                SerializedSizeVisitorType::MaxDefaultObjectSize => quote_spanned!{field.original.span() => <#bitfield_type>::max_default_object_size()},
             }
         } else {
             quote!{0}
         }
     } else {
         match visitor_type {
-            SerializedSizeVisitorType::SerializedSize => quote!{_lain::traits::SerializedSize::serialized_size(#borrow#value_ident)},
+            SerializedSizeVisitorType::SerializedSize => quote_spanned!{ field.original.span() => _lain::traits::SerializedSize::serialized_size(#borrow#value_ident)},
             SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize  => {
                 match ty {
                     syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
                         let min = field.attrs.min().unwrap();
-                        quote!{ <#ty>::min_nonzero_elements_size() * #min }
+                        quote_spanned!{ field.original.span() => <#ty>::min_nonzero_elements_size() * #min }
                     },
                     _ => {
-                            quote!{ (<#ty>::min_nonzero_elements_size() ) }
+                            quote_spanned!{ field.original.span() => (<#ty>::min_nonzero_elements_size() ) }
                     }
                 }
             }
@@ -442,10 +439,10 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
                 match ty {
                     syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
                         let min = field.attrs.min().unwrap();
-                        quote!{ <#ty>::max_default_object_size() * #min }
+                        quote_spanned!{ field.original.span() => <#ty>::max_default_object_size() * #min }
                     },
                     _ => {
-                            quote!{ (<#ty>::max_default_object_size() ) }
+                            quote_spanned!{ field.original.span() => (<#ty>::max_default_object_size() ) }
                     }
                 }
             },
@@ -477,13 +474,13 @@ fn serialized_size_enum_visitor(
 
             match visitor_type {
                 SerializedSizeVisitorType::SerializedSize | SerializedSizeVisitorType::MinEnumVariantSize  => {
-                    quote! {
+                    quote_spanned! { variant.original.span() =>
                         #full_ident(#(ref #field_identifiers,)*) => {
                             0 #(+#field_sizes)*
                         }
                     }
                 }
-                _ => quote! {
+                _ => quote_spanned! { variant.original.span() =>
                     0 #(+#field_sizes)*
                 }
             }
