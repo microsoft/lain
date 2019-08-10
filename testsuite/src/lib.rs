@@ -24,15 +24,15 @@ mod test
     pub struct TestStruct {
         single_byte: u8,
 
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_1: u8,
-        #[bitfield(backing_type = "u8", bits = 2)]
+        #[lain(bits = 2)]
         bitfield_2: u8,
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_3: u8,
-        #[bitfield(backing_type = "u8", bits = 1)]
+        #[lain(bits = 1)]
         bitfield_4: u8,
-        #[bitfield(backing_type = "u8", bits = 3)]
+        #[lain(bits = 3)]
         bitfield_5: u8,
 
         uint32: u32,
@@ -173,7 +173,7 @@ mod test
     fn test_ignored_fields() {
         #[derive(NewFuzzed, BinarySerialize, Clone)]
         struct IgnoredFieldsStruct {
-            #[fuzzer(ignore = true)]
+            #[lain(ignore)]
             ignored: u8,
         }
 
@@ -188,7 +188,7 @@ mod test
     fn test_initializer() {
         #[derive(Default, NewFuzzed, BinarySerialize, Clone)]
         struct InitializedFieldsStruct {
-            #[fuzzer(initializer = "0x41")]
+            #[lain(initializer = "0x41")]
             initialized: u8,
         }
 
@@ -203,7 +203,7 @@ mod test
     fn test_dynamic_array_limits() {
         #[derive(Default, NewFuzzed, Clone, BinarySerialize)]
         struct Foo {
-            #[fuzzer(min = 1, max = 10)]
+            #[lain(min = 1, max = 10)]
             bar: Vec<u32>,
         }
 
@@ -224,7 +224,7 @@ mod test
     fn generic_mutation_test() {
         #[derive(Default, Debug, NewFuzzed, BinarySerialize, Clone)]
         struct Foo {
-            #[fuzzer(min = 1, max = 10)]
+            #[lain(min = 1, max = 10)]
             bar: Vec<u32>,
             baz: u64,
             x: u32,
@@ -308,7 +308,7 @@ mod test
         #[derive(BinarySerialize)]
         struct MyStruct {
             field1: u32,
-            #[byteorder(big)]
+            #[lain(big_endian)]
             field2: BigEndianStruct,
         }
 
@@ -319,12 +319,8 @@ mod test
             },
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, LittleEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, LittleEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }
@@ -341,7 +337,7 @@ mod test
         #[derive(BinarySerialize)]
         struct MyStruct {
             field1: u32,
-            #[byteorder(little)]
+            #[lain(little_endian)]
             field2: LittleEndianStruct,
         }
 
@@ -352,12 +348,8 @@ mod test
             },
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, BigEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, BigEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }
@@ -367,7 +359,7 @@ mod test
         let expected: [u8; 8] = [0xFF, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD];
 
         #[derive(BinarySerialize)]
-        #[serialized_size(0x4)]
+        #[lain(serialized_size = 0x4)]
         enum MyEnum {
             MyOtherStruct(MyOtherStruct),
         }
@@ -388,12 +380,8 @@ mod test
             x: 0xAABBCCDD,
         };
 
-        let mut serialized_buffer = [0u8; std::mem::size_of::<MyStruct>()];
-        {
-            let buffer_ref: &mut [u8] = &mut serialized_buffer;
-            let mut writer = BufWriter::new(buffer_ref);
-            s.binary_serialize::<_, BigEndian>(&mut writer);
-        }
+        let mut serialized_buffer = Vec::new();
+        s.binary_serialize::<_, BigEndian>(&mut serialized_buffer);
 
         compare_slices(&expected, &serialized_buffer);
     }
@@ -571,15 +559,15 @@ mod test
 
     #[test]
     fn test_post_mutation_called() {
-        #[derive(NewFuzzed, Clone, FixupChildren, BinarySerialize)]
+        #[derive(NewFuzzed, Clone, BinarySerialize)]
         struct S {
-            #[fuzzer(ignore = true)]
+            #[lain(ignore)]
             pub post_mutation_called: bool,
         }
 
         impl Fixup for S {
             fn fixup<R: lain::rand::Rng>(&mut self, _mutator: &mut Mutator<R>) {
-                println!("post mutation called!");
+                println!("fixup called");
                 self.post_mutation_called = true;
             }
         }
@@ -674,7 +662,7 @@ mod test
 
         #[derive(NewFuzzed, BinarySerialize)]
         struct Bar {
-            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            #[lain(min = 0, max = 100, weight_to = "min")]
             c: Vec<u8>,
         }
 
@@ -703,7 +691,7 @@ mod test
 
         #[derive(NewFuzzed, Mutatable, BinarySerialize)]
         struct Bar {
-            #[fuzzer(min = 0, max = 100, weighted = "min")]
+            #[lain(min = 0, max = 100, weight_to = "min")]
             c: Vec<u8>,
         }
 
@@ -736,7 +724,7 @@ mod test
         struct Bar {
             a: u32,
 
-            #[fuzzer(min=0, max=20)]
+            #[lain(min=0, max=20)]
             b: Vec<u8>,
         }
 
@@ -784,6 +772,30 @@ mod test
         for _i in 0..10 {
             instance.mutate(&mut mutator, None);
         }
+    }
+
+    #[test]
+    fn failed_docs_testcase() {
+        #[derive(Debug, Mutatable, NewFuzzed, BinarySerialize)]
+        struct MyStruct {
+            field_1: u8,
+
+            #[lain(bits = 3)]
+            field_2: u8,
+
+            #[lain(bits = 5)]
+            field_3: u8,
+
+            #[lain(min = 5, max = 10000)]
+            field_4: u32,
+
+            #[lain(ignore)]
+            ignored_field: u64,
+        }
+
+        let mut mutator = get_mutator();
+
+        println!("{:?}", MyStruct::new_fuzzed(&mut mutator, None));
     }
 
     fn compare_slices(expected: &[u8], actual: &[u8]) {

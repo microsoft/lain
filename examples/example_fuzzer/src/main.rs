@@ -28,22 +28,20 @@ struct GlobalContext {
     // counter per operation here or whatever you'd like
 }
 
-#[derive(Debug, Default, Clone, PostFuzzerIteration, FixupChildren, NewFuzzed, Mutatable, VariableSizeObject, BinarySerialize)]
+#[derive(Debug, Default, Clone, NewFuzzed, Mutatable, VariableSizeObject, BinarySerialize)]
 struct PacketData {
     typ: UnsafeEnum<PacketType, u32>,
 
     offset: u64,
     length: u64,
 
-    #[fuzzer(min = 0, max = 10)]
+    #[lain(min = 0, max = 10)]
     data: Vec<u8>,
 }
 
 impl Fixup for PacketData {
     fn fixup<R: Rng>(&mut self, mutator: &mut Mutator<R>) {
         self.length = self.data.len() as u64;
-
-        self.fixup_children(mutator);
     }
 }
 

@@ -102,7 +102,7 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                             let field_span = unnamed.span();
                             let ident_string = format!("field_{}", i);
                             let ident = TokenStream::from_str(&ident_string).unwrap();
-                            
+
                             variant_sizes.push(quote_spanned!{field_span => <#field_type>::min_nonzero_element_size()});
 
                             initializer.extend(quote_spanned! { field_span =>
@@ -355,23 +355,6 @@ fn gen_struct_new_fuzzed_impl(
     let generate_fields_count = generate_arms.len();
 
     quote! {
-        use std::any::Any;
-        use ::lain::rand::seq::index::sample;
-
-        // Make a copy of the constraints that will remain immutable for
-        // this function. Here we ensure that the base size of this object has
-        // been accounted for by the caller, which may be an object containing this.
-        let parent_constraints = parent_constraints.and_then(|c| {
-            let mut c = c.clone();
-            c.account_for_base_object_size::<Self>();
-
-            Some(c)
-        });
-
-        let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
-
-        let mut uninit_struct = std::mem::MaybeUninit::<#name>::uninit();
-        let uninit_struct_ptr = uninit_struct.as_mut_ptr();
 
         if Self::is_variable_size() {
             // this makes for ugly code generation, but better perf

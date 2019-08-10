@@ -17,22 +17,6 @@ pub enum PrimitiveType {
     Number,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Weighted {
-    None,
-    Min,
-    Max,
-}
-
-impl ToTokens for Weighted {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        match *self {
-            Weighted::None => tokens.extend(quote! {::lain::types::Weighted::None}),
-            Weighted::Min => tokens.extend(quote! {::lain::types::Weighted::Min}),
-            Weighted::Max => tokens.extend(quote! {::lain::types::Weighted::Max}),
-        }
-    }
-}
 
 pub(crate) struct FuzzerObjectStructField<'a> {
     pub field: &'a syn::Field,
