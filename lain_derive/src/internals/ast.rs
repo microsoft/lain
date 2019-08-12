@@ -58,11 +58,11 @@ impl<'a> Container<'a> {
     pub fn from_ast(
         cx: &Ctxt,
         item: &'a syn::DeriveInput,
-        derive: Derive,
+        _derive: Derive,
     ) -> Option<Container<'a>> {
-        let mut attrs = attr::Container::from_ast(cx, item);
+        let attrs = attr::Container::from_ast(cx, item);
 
-        let mut data = match item.data {
+        let data = match item.data {
             syn::Data::Enum(ref data) => {
                 Data::Enum(enum_from_ast(cx, &data.variants))
             }
@@ -76,7 +76,7 @@ impl<'a> Container<'a> {
             }
         };
 
-        let mut item = Container {
+        let item = Container {
             ident: item.ident.clone(),
             attrs,
             data,
@@ -85,17 +85,6 @@ impl<'a> Container<'a> {
         };
 
         Some(item)
-    }
-}
-
-impl<'a> Data<'a> {
-    pub fn all_fields(&'a self) -> Box<dyn Iterator<Item = &'a Field<'a>> + 'a> {
-        match *self {
-            Data::Enum(ref variants) => {
-                Box::new(variants.iter().flat_map(|variant| variant.fields.iter()))
-            }
-            Data::Struct(_, ref fields) => Box::new(fields.iter()),
-        }
     }
 }
 
@@ -149,7 +138,7 @@ fn fields_from_ast<'a>(
                 Some(ref ident) => syn::Member::Named(ident.clone()),
                 None => syn::Member::Unnamed(i.into()),
             },
-            attrs: attr::Field::from_ast(cx, i, field),
+            attrs: attr::Field::from_ast(cx, field),
             ty: &field.ty,
             original: field,
         };
@@ -158,7 +147,7 @@ fn fields_from_ast<'a>(
             field.attrs.set_bit_shift(bitfield_bits);
             bitfield_bits += bits;
 
-            let mut bits_in_type = 0;
+            let bits_in_type: usize;
             
             let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
             if is_primitive_type(bitfield_type, "u8") {

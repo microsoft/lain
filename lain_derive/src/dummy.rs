@@ -1,6 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
 
-use syn;
 use crate::internals::attr::unraw;
 use quote::quote;
 

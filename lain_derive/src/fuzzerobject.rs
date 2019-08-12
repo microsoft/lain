@@ -50,7 +50,7 @@ pub(crate) fn get_post_fuzzer_iteration_impls(ident: &Ident, data: &Data) -> Tok
                 let mut base_tokens = quote_spanned!(ident.span() => );
 
                 for field in fields {
-                    let field_name = &field.field.ident;
+                    let field_name = field.field.ident;
                     let field_type = &field.field.ty;
                     base_tokens.extend(quote_spanned! { field.field.span() =>
                         <#field_type>::on_success(&self.#field_name);

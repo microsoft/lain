@@ -8,9 +8,8 @@ mod test
     use lain::byteorder::{BigEndian, LittleEndian};
     use lain::hexdump;
     use lain::prelude::*;
-    use lain::rand;
     use lain::rand::rngs::SmallRng;
-    use lain::rand::{Rng, SeedableRng};
+    use lain::rand::{SeedableRng};
     use std::io::BufWriter;
 
     #[derive(Debug, NewFuzzed, Clone, BinarySerialize)]
@@ -239,7 +238,7 @@ mod test
 
         for _i in 0..10000 {
             instance = Foo::new_fuzzed(&mut mutator, None);
-            //println!("{:?}", instance);
+            println!("{:?}", instance);
         }
     }
 

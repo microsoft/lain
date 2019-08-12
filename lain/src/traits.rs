@@ -8,8 +8,6 @@ use num_traits::Bounded;
 use std::fmt::Debug;
 use std::io::Write;
 
-use std::ops::Deref;
-
 /// Represents a data typethat can be pushed to a byte buffer in a constant,
 /// predetermined way.
 pub trait BinarySerialize {
@@ -69,7 +67,7 @@ pub trait Fixup {
 }
 
 impl<T> Fixup for T {
-    default fn fixup<R: Rng>(&mut self, mutator: &mut Mutator<R>) { /* nop */ }
+    default fn fixup<R: Rng>(&mut self, _mutator: &mut Mutator<R>) { /* nop */ }
 }
 
 #[doc(hidden)]

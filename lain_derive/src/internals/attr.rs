@@ -3,11 +3,9 @@ use crate::internals::Ctxt;
 use proc_macro2::{Group, Span, TokenStream, TokenTree};
 use quote::{ToTokens, quote_spanned, quote};
 use std::borrow::Cow;
-use std::collections::BTreeSet;
 use std::str::FromStr;
 use syn::{self, parse_quote};
-use syn::parse::{self, Parse, ParseStream};
-use syn::punctuated::Punctuated;
+use syn::parse::{self, Parse};
 use syn::{Ident, LitInt, IntSuffix};
 use syn::Meta::{List, NameValue, Word};
 use syn::Lit::{Int, Float};
@@ -42,27 +40,8 @@ impl<'c, T> Attr<'c, T> {
         }
     }
 
-    fn set_opt<A: ToTokens>(&mut self, obj: A, value: Option<T>) {
-        if let Some(value) = value {
-            self.set(obj, value);
-        }
-    }
-
-    fn set_if_none(&mut self, value: T) {
-        if self.value.is_none() {
-            self.value = Some(value);
-        }
-    }
-
     fn get(self) -> Option<T> {
         self.value
-    }
-
-    fn get_with_tokens(self) -> Option<(TokenStream, T)> {
-        match self.value {
-            Some(v) => Some((self.tokens, v)),
-            None => None,
-        }
     }
 }
 
@@ -153,7 +132,6 @@ pub fn unraw(ident: &Ident) -> String {
 
 /// Represents field attribute information
 pub struct Field {
-    name: String,
     bits: Option<usize>,
     bit_shift: Option<usize>,
     bitfield_type: Option<syn::Type>,
@@ -169,7 +147,7 @@ pub struct Field {
 
 impl Field {
     /// Extract out the `#[lain()]` attributes from an item
-    pub fn from_ast(cx: &Ctxt, index: usize, field: &syn::Field) -> Self {
+    pub fn from_ast(cx: &Ctxt, field: &syn::Field) -> Self {
         let mut bits = Attr::none(cx, BITS);
         let mut bitfield_type = Attr::none(cx, BITFIELD_TYPE);
         let mut min = Attr::none(cx, MIN);
@@ -180,11 +158,6 @@ impl Field {
         let mut big_endian= BoolAttr::none(cx, BIG_ENDIAN);
         let mut little_endian = BoolAttr::none(cx, LITTLE_ENDIAN);
         let mut weight_to = Attr::none(cx, WEIGHT_TO);
-
-        let ident = match field.ident {
-            Some(ref ident) => unraw(ident),
-            None => index.to_string(),
-        };
 
         for meta_items in field.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
@@ -280,7 +253,6 @@ impl Field {
         }
 
         Field {
-            name: ident,
             bits: bits.get(),
             bit_shift: None, // this gets fixed up later
             bitfield_type: bitfield_type.get(),
@@ -293,10 +265,6 @@ impl Field {
             big_endian: big_endian.get(),
             weight_to: weight_to.get(),
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
     }
 
     pub fn bits(&self) -> Option<usize> {
@@ -441,7 +409,7 @@ fn parse_min_max(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<TokenSt
         if let Ok(value) = TokenStream::from_str(&s.value()) {
             Ok(quote_spanned! {lit.span() => #value})
         } else {
-            cx.error_spanned_by(lit, format!("invalid tokens for {}", MIN));
+            cx.error_spanned_by(lit, format!("invalid tokens for {}", attr_name));
             Err(())
         }
     } else if let Int(i) = lit {
@@ -459,17 +427,6 @@ fn parse_lit_into_type(
     attr_name: Symbol,
     lit: &syn::Lit,
 ) -> Result<syn::Type, ()> {
-    let string = get_lit_str(cx, attr_name, attr_name, lit)?;
-    parse_lit_str(string).map_err(|_| {
-        cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))
-    })
-}
-
-fn parse_lit_into_expr_path(
-    cx: &Ctxt,
-    attr_name: Symbol,
-    lit: &syn::Lit,
-) -> Result<syn::ExprPath, ()> {
     let string = get_lit_str(cx, attr_name, attr_name, lit)?;
     parse_lit_str(string).map_err(|_| {
         cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))

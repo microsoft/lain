@@ -1,7 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use std::str::FromStr;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput, Lit, NestedMeta};
 use quote::{quote, quote_spanned, ToTokens};
 
 use crate::internals::{Ctxt, Derive, attr};
@@ -11,7 +10,7 @@ use crate::dummy;
 pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
     let ctx = Ctxt::new();
 
-    let cont = match Container::from_ast(&ctx, input, Derive::NewFuzzed) {
+    let cont = match Container::from_ast(&ctx, input, Derive::Mutatable) {
         Some(cont) => cont,
         None => return Err(ctx.check().unwrap_err()),
     };
@@ -46,7 +45,7 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
 pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
     let ctx = Ctxt::new();
 
-    let cont = match Container::from_ast(&ctx, input, Derive::NewFuzzed) {
+    let cont = match Container::from_ast(&ctx, input, Derive::BinarySerialize) {
         Some(cont) => cont,
         None => return Err(ctx.check().unwrap_err()),
     };
@@ -80,21 +79,19 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
 
 fn mutatable_body(cont: &Container) -> TokenStream {
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => mutatable_enum(variants, &cont.attrs, &cont.ident),
-        Data::Enum(ref variants) => mutatable_unit_enum(variants, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => mutatable_struct(fields, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Unit, ref fields) => TokenStream::new(),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => mutatable_enum(variants, &cont.ident),
+        Data::Enum(ref variants) => mutatable_unit_enum(variants, &cont.ident),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => mutatable_struct(fields),
+        Data::Struct(Style::Unit, ref _fields) => TokenStream::new(),
     }
 }
 
 fn mutatable_enum (
     variants: &[Variant],
-    cattrs: &attr::Container,
     cont_ident: &syn::Ident,
 ) ->  TokenStream {
     let constraints_prelude = constraints_prelude();
     let match_arms = mutatable_enum_visitor(variants, cont_ident);
-    let variant_count = match_arms.len();
 
     if match_arms.is_empty() {
         return TokenStream::new();
@@ -115,7 +112,7 @@ fn mutatable_enum (
     }
 }
 
-fn mutatable_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
+fn mutatable_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
     let (weights, variant_tokens) = mutatable_unit_enum_visitor(variants, cont_ident);
     let variant_count = variant_tokens.len();
 
@@ -143,17 +140,13 @@ fn mutatable_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_iden
 
 fn mutatable_struct (
     fields: &[Field],
-    cattrs: &attr::Container,
-    cont_ident: &syn::Ident,
 ) -> TokenStream {
-    let mutators = mutatable_struct_visitor(fields, cont_ident);
+    let mutators = mutatable_struct_visitor(fields);
     let prelude = constraints_prelude();
 
     if mutators.is_empty() {
         return TokenStream::new();
     }
-
-    let len = mutators.len();
 
     quote! {
         #prelude
@@ -202,7 +195,7 @@ fn mutatable_enum_visitor(
             let mut field_identifiers = vec![];
 
             let field_mutators: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, field_ident_string, initializer) = field_mutator(field, "__field", true);
+                let (value_ident, _field_ident_string, initializer) = field_mutator(field, "__field", true);
                 field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
 
                 initializer
@@ -225,7 +218,6 @@ fn mutatable_enum_visitor(
 
 fn mutatable_struct_visitor(
     fields: &[Field],
-    cont_ident: &syn::Ident,
 ) -> Vec<TokenStream> {
     fields
         .iter()
@@ -241,16 +233,15 @@ fn mutatable_struct_visitor(
 
 fn new_fuzzed_body(cont: &Container) -> TokenStream {
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => new_fuzzed_enum(variants, &cont.attrs, &cont.ident),
-        Data::Enum(ref variants) => new_fuzzed_unit_enum(variants, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => new_fuzzed_struct(fields, &cont.attrs, &cont.ident),
-        Data::Struct(Style::Unit, ref fields) => new_fuzzed_unit_struct(fields, &cont.attrs, &cont.ident),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => new_fuzzed_enum(variants, &cont.ident),
+        Data::Enum(ref variants) => new_fuzzed_unit_enum(variants, &cont.ident),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => new_fuzzed_struct(fields, &cont.ident),
+        Data::Struct(Style::Unit, ref _fields) => new_fuzzed_unit_struct(&cont.ident),
     }
 }
 
 fn new_fuzzed_enum (
     variants: &[Variant],
-    cattrs: &attr::Container,
     cont_ident: &syn::Ident,
 ) ->  TokenStream {
     let constraints_prelude = constraints_prelude();
@@ -298,7 +289,7 @@ fn new_fuzzed_enum (
     }
 }
 
-fn new_fuzzed_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ident: &syn::Ident) -> TokenStream {
+fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
     let (weights, variant_tokens) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
 
     if variant_tokens.is_empty() {
@@ -328,7 +319,6 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cattrs: &attr::Container, cont_ide
 
 fn new_fuzzed_struct (
     fields: &[Field],
-    cattrs: &attr::Container,
     cont_ident: &syn::Ident,
 ) -> TokenStream {
     let initializers = new_fuzzed_struct_visitor(fields, cont_ident);
@@ -377,8 +367,6 @@ fn new_fuzzed_struct (
 }
 
 fn new_fuzzed_unit_struct (
-    fields: &[Field],
-    cattrs: &attr::Container,
     cont_ident: &syn::Ident,
 ) -> TokenStream {
     quote! {
@@ -393,7 +381,7 @@ fn new_fuzzed_struct_visitor(
     fields
         .iter()
         .map(|field| {
-            let (field_ident, field_ident_string, initializer) = field_initializer(field, "self");
+            let (field_ident, _field_ident_string, initializer) = field_initializer(field, "self");
             let ty = &field.ty;
             let member = &field.member;
 
@@ -462,7 +450,6 @@ fn option_to_tokens<T: ToTokens + Spanned>(opt: Option<&T>) -> TokenStream {
 fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, String, TokenStream) {
     let default_constraints = struct_field_constraints(field, false);
     let ty = &field.ty;
-    let field_ident = &field.member;
     let field_ident_string = match field.member{
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
@@ -533,7 +520,6 @@ fn increment_max_size(ty: &syn::Type, value_ident: &TokenStream, field_ident_str
 fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool) -> (TokenStream, String, TokenStream) {
     let default_constraints = struct_field_constraints(field, true);
     let ty = &field.ty;
-    let field_ident = &field.member;
     let field_ident_string = match field.member{
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
@@ -608,7 +594,7 @@ fn new_fuzzed_enum_visitor(
             let mut field_identifiers = vec![];
 
             let field_initializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, field_ident_string, initializer) = field_initializer(field, "__field");
+                let (value_ident, _field_ident_string, initializer) = field_initializer(field, "__field");
                 field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
 
                 initializer

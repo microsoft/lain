@@ -7,6 +7,6 @@ pub use self::ctxt::Ctxt;
 
 pub enum Derive {
     NewFuzzed,
-    Mutate,
+    Mutatable,
     BinarySerialize,
 }
