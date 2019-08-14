@@ -20,7 +20,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! lain = "0.1"
+//! lain = "0.2"
 //! ```
 //!
 //! ## Example Usage

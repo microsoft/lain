@@ -22,7 +22,7 @@ Add the following to your Cargo.toml:
 
 ```toml
 [dependencies]
-lain = "0.1"
+lain = "0.2"
 ```
 
 ### Example Usage
