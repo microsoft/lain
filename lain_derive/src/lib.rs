@@ -169,9 +169,20 @@ pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// my_struct.mutate()
 /// ```
 #[proc_macro_derive(VariableSizeObject)]
-pub fn variable_size_object_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn variable_size_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
+    let expanded = variable_size_object_helper(&input);
+
+    // Uncomment to dump the AST
+    // println!("{}", expanded);
+
+    proc_macro::TokenStream::from(expanded)
+}
+
+fn variable_size_object_helper(input: &DeriveInput) -> TokenStream {
+    // TODO: refactor this to use the same pattern as Mutatable/NewFuzzed introduced
+    // in v0.2.0
     let imp: TokenStream;
 
     match input.data {
@@ -217,24 +228,18 @@ pub fn variable_size_object_helper(input: proc_macro::TokenStream) -> proc_macro
         _ => panic!("Non-enum/struct data types are not supported"),
     }
 
-    let name = input.ident;
+    let name = &input.ident;
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let expanded = quote! {
+    quote! {
         impl #impl_generics ::lain::traits::VariableSizeObject for #name #ty_generics #where_clause {
             fn is_variable_size() -> bool {
                 #imp
             }
         }
-    };
-
-    // Uncomment to dump the AST
-    // println!("{}", expanded);
-
-    proc_macro::TokenStream::from(expanded)
+    }
 }
-
 
 /// A "catch-all" derive for NewFuzzed, Mutatable, and VariableObjectSize
 #[proc_macro_derive(FuzzerObject, attributes(lain))]
@@ -244,6 +249,7 @@ pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let input = parse_macro_input!(input as DeriveInput);
     base_token_stream.extend::<TokenStream>(mutations::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into());
     base_token_stream.extend::<TokenStream>(mutations::expand_mutatable(&input).unwrap_or_else(to_compile_errors).into());
+    base_token_stream.extend::<TokenStream>(variable_size_object_helper(&input));
 
     base_token_stream.into()
 }
