@@ -164,7 +164,7 @@ fn shrink_vec<T, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>) {
         VecResizeCount::Quarter => vec.len() / 4,
         VecResizeCount::Half => vec.len() / 2,
         VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
-        VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
+        VecResizeCount::FixedBytes => min(mutator.gen_range(1, 9), vec.len()),
         VecResizeCount::AllBytes => vec.len(),
     };
 
