@@ -344,6 +344,8 @@ fn new_fuzzed_struct (
         let mut uninit_struct = std::mem::MaybeUninit::<#cont_ident>::uninit();
         let uninit_struct_ptr = uninit_struct.as_mut_ptr();
 
+        mutator.set_total_fields(#len - 1);
+
         if Self::is_variable_size() {
             // this makes for ugly code generation, but better perf
             for i in sample(&mut mutator.rng, #len, #len).iter() {

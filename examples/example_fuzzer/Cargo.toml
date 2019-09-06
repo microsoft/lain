@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 lain = { version = "0.2", path = "../../lain" }
 ctrlc = "3.1"
+env_logger = "0.6.2"
+log = "0.4"

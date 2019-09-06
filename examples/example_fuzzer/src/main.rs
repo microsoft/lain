@@ -1,7 +1,6 @@
 #![feature(specialization)]
 
-extern crate lain;
-extern crate ctrlc;
+use env_logger;
 
 use lain::prelude::*;
 use lain::rand::Rng;
@@ -25,7 +24,7 @@ struct FuzzerThreadContext {
 #[derive(Default)]
 struct GlobalContext {
     // unused, but you could put an iteration
-    // counter per operation here or whatever you'd like
+// counter per operation here or whatever you'd like
 }
 
 #[derive(Debug, Default, Clone, NewFuzzed, Mutatable, VariableSizeObject, BinarySerialize)]
@@ -60,6 +59,9 @@ impl Default for PacketType {
 }
 
 fn main() {
+    // env_logger::builder()
+    //     .filter_level(log::LevelFilter::Info)
+    //     .init();
     let mut driver = FuzzerDriver::<GlobalContext>::new(THREAD_COUNT);
 
     driver.set_global_context(Default::default());
@@ -69,7 +71,8 @@ fn main() {
 
     ctrlc::set_handler(move || {
         ctrlc_driver.signal_exit();
-    }).expect("couldn't set CTRL-C handler");
+    })
+    .expect("couldn't set CTRL-C handler");
 
     start_fuzzer(driver.clone(), fuzzer_routine);
 
@@ -78,7 +81,11 @@ fn main() {
     println!("Finished in {} iterations", driver.num_iterations());
 }
 
-fn fuzzer_routine<R: Rng>(mutator: &mut Mutator<R>, thread_context: &mut FuzzerThreadContext, _global_context: Option<Arc<RwLock<GlobalContext>>>) -> Result<(), ()> {
+fn fuzzer_routine<R: Rng>(
+    mutator: &mut Mutator<R>,
+    thread_context: &mut FuzzerThreadContext,
+    _global_context: Option<Arc<RwLock<GlobalContext>>>,
+) -> Result<(), ()> {
     // TODO: we have overhead here of re-estabilishing the connection every time
     let mut stream = TcpStream::connect("127.0.0.1:8080").expect("server isn't running. possible crash?");
 
