@@ -215,11 +215,11 @@ impl<R: Rng> Mutator<R> {
                         current_idx: current_idx + 1,
                     };
                 } else {
+                    self.corpus_state.targeted_field_idx += 1;
                     if self.corpus_state.targeted_field_idx == self.corpus_state.target_total_fields
                     {
                         self.corpus_state.mode = MutatorMode::Havoc;
                     } else {
-                        self.corpus_state.targeted_field_idx += 1;
                         self.corpus_state.mode = MutatorMode::WalkingBitFlip {
                             bits: 1,
                             current_idx: 0,
