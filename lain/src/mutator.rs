@@ -120,7 +120,7 @@ impl<R: Rng> Mutator<R> {
     }
 
     pub fn set_total_fields(&mut self, count: usize) {
-        self.corpus_state.target_total_fields = count;
+        self.corpus_state.target_total_fields += count;
     }
 
     /// Generates a random choice of the given type
