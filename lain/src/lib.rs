@@ -102,7 +102,7 @@
 
 // TODO: Uncomment once const generics are more stable
 // #![feature(const_generics)]
-// #![feature(maybe_uninit)]
+#![feature(maybe_uninit)]
 
 extern crate num;
 extern crate num_derive;
