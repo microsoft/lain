@@ -346,7 +346,7 @@ impl<R: Rng> Mutator<R> {
             + PartialOrd,
     {
         if min >= max {
-            panic!("cannot gen number where min >= max: {} == {}", min, max);
+            panic!("cannot gen number where min ({}) >= max ({})", min, max);
         }
         trace!("generating number between {} and {}", &min, &max);
         let num = self.rng.gen_range(min, max);

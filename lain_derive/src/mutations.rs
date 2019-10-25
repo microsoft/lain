@@ -53,6 +53,7 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     ctx.check()?;
 
     let ident = &cont.ident;
+    let ident_str = ident.to_string();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let body = new_fuzzed_body(&cont);
@@ -67,6 +68,7 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
             // really use the min/max
             fn new_fuzzed<R: #lain::rand::Rng>(mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>) -> Self
             {
+                println!("{}: {:#X?}", #ident_str, parent_constraints);
                 #body
             }
         }
@@ -483,7 +485,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
         }
     };
 
-    let inc_max_size = increment_max_size(&ty, &value_ident, &field_ident_string);
+    let inc_max_size = increment_max_size(&field, &value_ident);
     let initializer = quote! {
         #default_constraints 
 
@@ -495,23 +497,33 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
     (value_ident, field_ident_string, initializer)
 }
 
-fn increment_max_size(ty: &syn::Type, value_ident: &TokenStream, field_ident_string: &str) -> TokenStream {
+fn increment_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
+    let ty = field.ty;
+    let field_ident_string = match field.member {
+        syn::Member::Named(ref ident) => ident.to_string(),
+        syn::Member::Unnamed(ref idx) => idx.index.to_string(),
+    };
+
+    let zero_tokens = TokenStream::from_str("0").unwrap();
+    let field_min_items = field.attrs.min().unwrap_or(&zero_tokens);
+    let ty_size = quote!{
+        ((<#ty>::min_nonzero_elements_size() * #field_min_items) as isize)
+    };
+
     quote! {
         if <#ty>::is_variable_size() {
             if let Some(ref mut max_size) = max_size {
-                if #value_ident.serialized_size() > *max_size {
-                    warn!("Max size provided to {} object is likely smaller than min object size", #field_ident_string);
-                    *max_size = 0;
-                } else {
-                    *max_size -= #value_ident.serialized_size();
-                }
+                // we only subtract off the difference between the object's allocated size
+                // and its min size.
+                println!("{} serialized_size: 0x{:X}, min: 0x{:X}", #field_ident_string, #value_ident.serialized_size(), #ty_size);
 
-                let size_delta = <#ty>::max_default_object_size() - <#ty>::min_nonzero_elements_size();
+                let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
 
-                // Give back the extra size
-                if size_delta > 0 {
-                    *max_size += #value_ident.min_enum_variant_size();
-                }
+                println!("max: 0x{:X}, delta: 0x{:X}", *max_size, size_delta);
+
+                // size_delta might be negative in the event that the mutator ignored
+                // the min bound
+                *max_size = ((*max_size as isize) - size_delta) as usize;
             }
         }
     }
@@ -544,7 +556,7 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
         }
     };
 
-    let inc_max_size = increment_max_size(&ty, &value_ident, &field_ident_string);
+    let inc_max_size = increment_max_size(&field, &value_ident);
 
     let initializer = quote! {
         #default_constraints 
@@ -624,6 +636,7 @@ fn constraints_prelude() -> TokenStream {
         let parent_constraints = parent_constraints.and_then(|c| {
             let mut c = c.clone();
             c.account_for_base_object_size::<Self>();
+            println!("prelude: {:#X?}", c);
 
             Some(c)
         });

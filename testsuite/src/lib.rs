@@ -797,6 +797,23 @@ mod test
         println!("{:?}", MyStruct::new_fuzzed(&mut mutator, None));
     }
 
+    #[test]
+    fn test_buffer_too_small_for_max_size() {
+        #[derive(Debug, VariableSizeObject, BinarySerialize, NewFuzzed)]
+        struct StructWithFixedSizeVec {
+            field_1: u8,
+
+            #[lain(min = 512, max = 512)]
+            field_2: Vec<u8>,
+        }
+
+        let mut constraints = Constraints::new();
+        constraints.max_size(0x201);
+
+        let mut mutator = get_mutator();
+        println!("{:?}", StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)));
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

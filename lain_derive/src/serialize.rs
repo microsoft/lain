@@ -425,9 +425,9 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
             }
             SerializedSizeVisitorType::MaxDefaultObjectSize => {
                 match ty {
-                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
-                        let min = field.attrs.min().unwrap();
-                        quote_spanned!{ field.original.span() => <#ty>::max_default_object_size() * #min }
+                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.max().is_some() => {
+                        let max = field.attrs.max().unwrap();
+                        quote_spanned!{ field.original.span() => <#ty>::max_default_object_size() * #max }
                     },
                     _ => {
                             quote_spanned!{ field.original.span() => (<#ty>::max_default_object_size() ) }

@@ -121,7 +121,7 @@ where
 
         // if no min/max were supplied, we'll take a conservative approach of 64 elements
         match constraints {
-            Some(ref constraints) => {
+            Some(constraints) => {
                 min = constraints.min.unwrap_or(0);
                 max = constraints.max.unwrap_or(MAX_NUM_ELEMENTS);
 
@@ -142,7 +142,7 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-                    max = cmp::min(max, max_size / T::min_nonzero_elements_size());
+                    max = cmp::min(max, (max_size + (T::min_nonzero_elements_size() * min)) / T::min_nonzero_elements_size());
                 }
             }
             None => {
@@ -182,7 +182,7 @@ where
                     if used_size + element_serialized_size > *max_size {
                         return output;
                     } else {
-                        used_size += element_serialized_size;
+                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
                     }
                 }
 
@@ -193,7 +193,7 @@ where
                 let element: T = if let Some(ref max_size) = max_size {
                     T::new_fuzzed(
                         mutator,
-                        Some(&Constraints::new().max_size(max_size - used_size)),
+                        Some(&Constraints::new().max_size(max_size - used_size).set_base_size_accounted_for()),
                     )
                 } else {
                     T::new_fuzzed(mutator, None)
@@ -205,7 +205,7 @@ where
                     if used_size + element_serialized_size > *max_size {
                         return output;
                     } else {
-                        used_size += element_serialized_size;
+                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
                     }
                 }
 
