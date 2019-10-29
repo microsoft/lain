@@ -68,7 +68,6 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
             // really use the min/max
             fn new_fuzzed<R: #lain::rand::Rng>(mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>) -> Self
             {
-                println!("{}: {:#X?}", #ident_str, parent_constraints);
                 #body
             }
         }
@@ -515,11 +514,7 @@ fn increment_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
             if let Some(ref mut max_size) = max_size {
                 // we only subtract off the difference between the object's allocated size
                 // and its min size.
-                println!("{} serialized_size: 0x{:X}, min: 0x{:X}", #field_ident_string, #value_ident.serialized_size(), #ty_size);
-
                 let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
-
-                println!("max: 0x{:X}, delta: 0x{:X}", *max_size, size_delta);
 
                 // size_delta might be negative in the event that the mutator ignored
                 // the min bound
@@ -636,7 +631,6 @@ fn constraints_prelude() -> TokenStream {
         let parent_constraints = parent_constraints.and_then(|c| {
             let mut c = c.clone();
             c.account_for_base_object_size::<Self>();
-            println!("prelude: {:#X?}", c);
 
             Some(c)
         });
