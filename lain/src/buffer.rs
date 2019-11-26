@@ -301,6 +301,10 @@ where T: ToPrimitive<Output=U>
     default fn max_default_object_size() -> usize {
         std::mem::size_of::<U>()
     }
+
+    default fn min_enum_variant_size(&self) -> usize {
+        std::mem::size_of::<U>()
+    }
 }
 
 impl SerializedSize for &str {
