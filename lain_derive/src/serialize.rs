@@ -37,17 +37,7 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let serialize_body = binary_serialize_body(&cont);
-    let SerializedSizeBodies { serialized_size, min_nonzero_elements_size, max_default_object_size, min_enum_variant_size } = if let Some(size) = cont.attrs.serialized_size() {
-        let size = quote!{#size};
-        SerializedSizeBodies {
-            serialized_size: size.clone(),
-            min_nonzero_elements_size: size.clone(),
-            max_default_object_size: size.clone(),
-            min_enum_variant_size: size,
-        }
-    } else {
-        serialized_size_body(&cont)
-    };
+    let SerializedSizeBodies { serialized_size, min_nonzero_elements_size, max_default_object_size, min_enum_variant_size } = serialized_size_body(&cont, cont.attrs.serialized_size(), cont.attrs.min_serialized_size());
 
     let lain = cont.attrs.lain_path();
 
@@ -62,11 +52,13 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
 
                 #serialize_body
 
-                let padding_bytes = self.serialized_size() - bytes_written;
-                if padding_bytes != 0 {
-                    let null = 0x0u8;
-                    for _i in 0..padding_bytes {
-                        bytes_written += null.binary_serialize::<_, E>(buffer);
+                if bytes_written < self.serialized_size() {
+                    let padding_bytes = std::cmp::max(self.serialized_size(), Self::min_nonzero_elements_size()) - bytes_written;
+                    if padding_bytes != 0 {
+                        let null = 0x0u8;
+                        for _i in 0..padding_bytes {
+                            bytes_written += null.binary_serialize::<_, E>(buffer);
+                        }
                     }
                 }
 
@@ -82,6 +74,12 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
                 use #lain::traits::SerializedSize;
                 #lain::log::debug!("getting serialized size of {}", #ident_as_string);
                 let size = #serialized_size;
+
+                let size = if size < Self::min_nonzero_elements_size() {
+                    Self::min_nonzero_elements_size()
+                } else {
+                    size
+                };
                 #lain::log::debug!("size of {} is 0x{:02X}", #ident_as_string, size);
 
                 return size;
@@ -118,9 +116,20 @@ fn binary_serialize_body(cont: &Container) -> TokenStream {
     }
 }
 
-fn serialized_size_body(cont: &Container) -> SerializedSizeBodies {
+fn serialized_size_body(cont: &Container, size: Option<usize>, min_size: Option<usize>) -> SerializedSizeBodies {
+    if let Some(size) = size.clone() {
+        let size_tokens = quote!{#size};
+
+        return SerializedSizeBodies {
+            serialized_size: size_tokens.clone(),
+            min_nonzero_elements_size: size_tokens.clone(),
+            max_default_object_size: size_tokens.clone(),
+            min_enum_variant_size: size_tokens.clone(),
+        };
+    }
+
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => serialized_size_enum(variants, &cont.ident),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => serialized_size_enum(variants, &cont.ident, size, min_size),
         Data::Enum(ref _variants) => serialized_size_unit_enum(&cont.ident),
         Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => serialized_size_struct(fields),
         Data::Struct(Style::Unit, ref _fields) => {
@@ -288,19 +297,29 @@ fn binary_serialize_enum_visitor(
 fn serialized_size_enum (
     variants: &[Variant],
     cont_ident: &syn::Ident,
+    size: Option<usize>,
+    min_size: Option<usize>,
 ) ->  SerializedSizeBodies {
     let match_arms = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::SerializedSize);
     let nonzero_variants = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinNonzeroElements);
     let max_obj = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MaxDefaultObjectSize);
     let min_variant = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinEnumVariantSize);
 
-    let serialized_size = quote! {
-        match *self {
-            #(#match_arms)*
+    let serialized_size = if let Some(size) = size {
+        quote!{#size}
+    } else {
+        quote! {
+            match *self {
+                #(#match_arms)*
+            }
         }
     };
     
-    let min_nonzero = quote! {*[#(#nonzero_variants,)*].iter().min_by(|a, b| a.cmp(b)).unwrap()};
+    let min_nonzero = if let Some(min_size) = min_size {
+        quote! {#min_size}
+    } else {
+        quote! {*[#(#nonzero_variants,)*].iter().min_by(|a, b| a.cmp(b)).unwrap()}
+    };
 
     let max_default = quote! {*[#(#max_obj,)*].iter().max_by(|a, b| a.cmp(b)).unwrap()};
 

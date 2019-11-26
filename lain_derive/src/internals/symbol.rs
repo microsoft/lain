@@ -15,6 +15,7 @@ pub const BIG_ENDIAN: Symbol = Symbol("big_endian");
 pub const LITTLE_ENDIAN: Symbol = Symbol("little_endian");
 pub const INITIALIZER: Symbol = Symbol("initializer");
 pub const SERIALIZED_SIZE: Symbol = Symbol("serialized_size");
+pub const MIN_SERIALIZED_SIZE: Symbol = Symbol("min_serialized_size");
 pub const WEIGHT: Symbol = Symbol("weight");
 pub const WEIGHT_TO: Symbol = Symbol("weight_to");
 

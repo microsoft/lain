@@ -64,12 +64,14 @@ impl<'c> BoolAttr<'c> {
 /// Represents a struct or enum attribute information
 pub struct Container {
     serialized_size: Option<usize>,
+    min_serialized_size: Option<usize>,
 }
 
 impl Container {
     /// Extract out the `#[lain()]` attributes from an item
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
         let mut serialized_size = Attr::none(cx, SERIALIZED_SIZE);
+        let mut min_serialized_size = Attr::none(cx, MIN_SERIALIZED_SIZE);
 
         for meta_items in item.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
@@ -79,6 +81,13 @@ impl Container {
                             serialized_size.set(&m.ident, i.value() as usize);
                         } else {
                             cx.error_spanned_by(&m.lit, format!("failed to integer expression for {}", SERIALIZED_SIZE));
+                        }
+                    }
+                    Meta(NameValue(ref m)) if m.ident == MIN_SERIALIZED_SIZE => {
+                        if let Int(ref i) = m.lit {
+                            min_serialized_size.set(&m.ident, i.value() as usize);
+                        } else {
+                            cx.error_spanned_by(&m.lit, format!("failed to integer expression for {}", MIN_SERIALIZED_SIZE));
                         }
                     }
                     Meta(ref meta_item) => {
@@ -96,11 +105,16 @@ impl Container {
 
         Container {
             serialized_size: serialized_size.get(),
+            min_serialized_size: min_serialized_size.get(),
         }
     }
 
     pub fn serialized_size(&self) -> Option<usize> {
         self.serialized_size.clone()
+    }
+
+    pub fn min_serialized_size(&self) -> Option<usize> {
+        self.min_serialized_size.clone()
     }
 
     pub fn lain_path(&self) -> Cow<syn::Path> {
