@@ -53,7 +53,6 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     ctx.check()?;
 
     let ident = &cont.ident;
-    let ident_str = ident.to_string();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let body = new_fuzzed_body(&cont);
@@ -412,6 +411,7 @@ fn struct_field_constraints(field: &Field, for_mutation: bool) -> TokenStream {
     if attrs.min().is_some() || attrs.max().is_some() || attrs.bits().is_some() {
         let min: TokenStream;
         let max: TokenStream;
+
         if let Some(bits) = attrs.bits() {
             // TODO: maybe refactor attributes so that they can retain original span
             let bitfield_max = syn::LitInt::new(2_u64.pow(bits as u32), syn::IntSuffix::None, Span::call_site()); 
@@ -498,7 +498,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
 
 fn increment_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
     let ty = field.ty;
-    let field_ident_string = match field.member {
+    let _field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
@@ -636,5 +636,8 @@ fn constraints_prelude() -> TokenStream {
         });
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+        if let Some(max) = max_size {
+            max_size = Some(std::cmp::min(Self::min_nonzero_elements_size(), max));
+        }
     }
 }

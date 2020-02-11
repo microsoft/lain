@@ -414,6 +414,30 @@ where
     }
 }
 
+impl Mutatable for *const std::ffi::c_void {
+    type RangeType = u8;
+
+    fn mutate<R: Rng>(
+        &mut self,
+        _mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
+        // nop
+    }
+}
+
+impl Mutatable for *mut std::ffi::c_void {
+    type RangeType = u8;
+
+    fn mutate<R: Rng>(
+        &mut self,
+        _mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
+        // nop
+    }
+}
+
 macro_rules! impl_mutatable_array {
     ( $($size:expr),* ) => {
         $(

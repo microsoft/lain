@@ -235,6 +235,28 @@ impl BinarySerialize for &str {
     }
 }
 
+impl BinarySerialize for *const std::ffi::c_void {
+    #[inline(always)]
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        #[cfg(target_pointer_width="64")]
+        let numeric_ptr = *self as u64;
+        #[cfg(target_pointer_width="32")]
+        let numeric_ptr = *self as u32;
+        #[cfg(not(any(target_pointer_width="32", target_pointer_width="64")))]
+        panic!("unsupported pointer width");
+
+        numeric_ptr.binary_serialize::<_, E>(buffer)
+    }
+}
+
+impl BinarySerialize for *mut std::ffi::c_void {
+    #[inline(always)]
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        let const_ptr = *self as *const std::ffi::c_void;
+        BinarySerialize::binary_serialize::<_, E>(&const_ptr, buffer)
+    }
+}
+
 macro_rules! impl_binary_serialize {
     ( $($name:ident),* ) => {
         $(
@@ -270,7 +292,7 @@ macro_rules! impl_serialized_size {
 
                 #[inline]
                 fn min_nonzero_elements_size() -> usize {
-                    std::mem::size_of::<$name>()
+                    1
                 }
 
                 #[inline]
@@ -294,7 +316,7 @@ where T: ToPrimitive<Output=U>
 
     #[inline]
     default fn min_nonzero_elements_size() -> usize {
-        std::mem::size_of::<U>()
+        1
     }
 
     #[inline]
@@ -321,5 +343,39 @@ impl SerializedSize for &str {
     #[inline]
     fn max_default_object_size() -> usize {
         1
+    }
+}
+
+impl SerializedSize for *const std::ffi::c_void {
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        std::mem::size_of::<usize>()
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        1
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        std::mem::size_of::<usize>()
+    }
+}
+
+impl SerializedSize for *mut std::ffi::c_void {
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        std::mem::size_of::<usize>()
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        1
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        std::mem::size_of::<usize>()
     }
 }

@@ -736,8 +736,10 @@ mod test
         const MAX_SIZE: usize = 20;
 
         let mut mutator = get_mutator();
+
         let mut constraints = Constraints::new();
         constraints.max_size(MAX_SIZE);
+
 
         let mut instance = TestEnum::new_fuzzed(&mut mutator, Some(&constraints));
         for _i in 0..1000 {
@@ -746,6 +748,9 @@ mod test
         }
 
         for _i in 0..1000 {
+            let mut constraints = Constraints::new();
+            constraints.max_size(MAX_SIZE);
+
             instance.mutate(&mut mutator, Some(&constraints));
             assert!(instance.serialized_size() <= MAX_SIZE);
         }
@@ -812,6 +817,23 @@ mod test
 
         let mut mutator = get_mutator();
         println!("{:?}", StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)));
+    }
+
+    #[test]
+    fn test_pointers() {
+        let ptr = 0xDEADBEEFusize as *const std::ffi::c_void;
+        let expected: [u8; 8] = [0x0, 0x0, 0x0, 0x0, 0xDE, 0xAD, 0xBE, 0xEF];
+
+        let mut buffer = vec![];
+
+        ptr.binary_serialize::<_, BigEndian>(&mut buffer);
+
+        compare_slices(&expected[..], buffer.as_slice());
+
+        let mut mutator = get_mutator();
+
+        let ptr = <*const std::ffi::c_void as NewFuzzed>::new_fuzzed(&mut mutator, None);
+        assert_eq!(ptr, std::ptr::null());
     }
 
     fn compare_slices(expected: &[u8], actual: &[u8]) {
