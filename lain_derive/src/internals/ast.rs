@@ -159,7 +159,7 @@ fn fields_from_ast<'a>(
             } else if is_primitive_type(bitfield_type, "u64") {
                 bits_in_type = 64
             } else {
-                cx.error_spanned_by(&field.ty, "Unsupported bitfield datatype. Did you forget to specify `#[lain(backing_type = \"...\")]`?");
+                cx.error_spanned_by(&field.ty, "Unsupported bitfield datatype. Did you forget to specify `#[lain(bitfield_type = \"...\")]`?");
                 return field;
             }
 

@@ -1,6 +1,7 @@
 use proc_macro2::{TokenStream};
 use std::str::FromStr;
 use syn::spanned::Spanned;
+use syn::export::quote::ToTokens;
 use quote::{quote, quote_spanned};
 
 use crate::internals::{Ctxt, Derive};
@@ -229,7 +230,7 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         } else if is_primitive_type(&bitfield_type, "u64") {
             64
         } else {
-            panic!("got to field_serialize with an unsupported bitfield type. ensure that checks in ast code are correct");
+            panic!("got to field_serialize with an unsupported bitfield type `{}`. ensure that checks in ast code are correct", bitfield_type.into_token_stream());
         };
 
         let bitfield_value = if field.attrs.bitfield_type().is_some() {
@@ -403,14 +404,14 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
 
         let type_total_bits = if is_primitive_type(bitfield_type, "u8") {
             8
-        } else if is_primitive_type(&field.ty, "u16") {
+        } else if is_primitive_type(&bitfield_type, "u16") {
             16
-        } else if is_primitive_type(&field.ty, "u32") {
+        } else if is_primitive_type(&bitfield_type, "u32") {
             32
-        } else if is_primitive_type(&field.ty, "u64") {
+        } else if is_primitive_type(&bitfield_type, "u64") {
             64
         } else {
-            panic!("got to field_serialize with an unsupported bitfield type. ensure that checks in ast code are correct");
+            panic!("got to field_serialize_size with an unsupported bitfield type `{}`. ensure that checks in ast code are correct", bitfield_type.into_token_stream());
         };
 
         let bitfield_value = if field.attrs.bitfield_type().is_some() {

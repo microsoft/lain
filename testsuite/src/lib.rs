@@ -892,6 +892,28 @@ mod test
         compare_slices(&expected[..], output.as_slice());
     }
 
+    fn test_serializing_enum_as_bitfield() {
+        #[derive(Copy, Clone, BinarySerialize, ToPrimitiveU8)]
+        #[repr(u8)]
+        enum Test {
+            Foo = 1,
+        }
+
+        #[derive(BinarySerialize)]
+        struct ContainingTest {
+            #[lain(bits = 1, bitfield_type = "u32")]
+            test: Test,
+        }
+
+        let mut output = vec![];
+        let c = ContainingTest {
+            test: Test::Foo,
+        };
+
+        c.binary_serialize::<_, BigEndian>(&mut output);
+        assert_eq!(output[0], 1);
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 
