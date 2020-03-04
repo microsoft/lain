@@ -216,6 +216,7 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
     let serialize_stmts = if let Some(bits) = field.attrs.bits() {
         let bit_mask = 2_u64.pow(bits as u32) - 1;
         let bit_shift = field.attrs.bit_shift().unwrap();
+        let is_last_field = field.attrs.is_last_field();
 
         let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
 
@@ -241,7 +242,7 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
             bitfield |= ((#bitfield_value as #bitfield_type & #bit_mask as #bitfield_type) << #bit_shift) as u64;
         };
 
-        if bits + bit_shift == type_total_bits {
+        if bits + bit_shift == type_total_bits || is_last_field {
             bitfield_setter.extend(quote_spanned!{field.ty.span() => bytes_written += <#bitfield_type>::binary_serialize::<_, #endian>(&(bitfield as #bitfield_type), buffer);});
         }
 
@@ -398,6 +399,7 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
     let serialized_size_stmts = if let Some(bits) = field.attrs.bits() {
         let bit_shift = field.attrs.bit_shift().unwrap();
         let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
+        let is_last_field= field.attrs.is_last_field();
 
         let type_total_bits = if is_primitive_type(bitfield_type, "u8") {
             8
@@ -417,16 +419,15 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
             quote_spanned!{ field.original.span() => #borrow#value_ident}
         };
 
-        // kind of a hack but only emit the size of the bitfield once we've reached
-        // the last item in the bitfield
-        if bits + bit_shift == type_total_bits {
+        // kind of a hack but only emit the size of the bitfield for the first element
+        if bits + bit_shift == type_total_bits || is_last_field {
             match visitor_type {
                 SerializedSizeVisitorType::SerializedSize => quote_spanned!{field.original.span() => _lain::traits::SerializedSize::serialized_size(#bitfield_value)},
                 SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize => quote_spanned!{field.original.span() => <#bitfield_type>::min_nonzero_elements_size()},
                 SerializedSizeVisitorType::MaxDefaultObjectSize => quote_spanned!{field.original.span() => <#bitfield_type>::max_default_object_size()},
             }
         } else {
-            quote!{0}
+            quote!{0 /* bitfield */}
         }
     } else {
         match visitor_type {

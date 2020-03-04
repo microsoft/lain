@@ -292,7 +292,7 @@ macro_rules! impl_serialized_size {
 
                 #[inline]
                 fn min_nonzero_elements_size() -> usize {
-                    1
+                    std::mem::size_of::<$name>()
                 }
 
                 #[inline]
@@ -316,7 +316,7 @@ where T: ToPrimitive<Output=U>
 
     #[inline]
     default fn min_nonzero_elements_size() -> usize {
-        1
+        std::mem::size_of::<U>()
     }
 
     #[inline]
@@ -354,7 +354,7 @@ impl SerializedSize for *const std::ffi::c_void {
 
     #[inline]
     fn min_nonzero_elements_size() -> usize {
-        1
+        std::mem::size_of::<usize>()
     }
 
     #[inline]
@@ -371,7 +371,7 @@ impl SerializedSize for *mut std::ffi::c_void {
 
     #[inline]
     fn min_nonzero_elements_size() -> usize {
-        1
+        std::mem::size_of::<usize>()
     }
 
     #[inline]

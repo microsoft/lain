@@ -129,7 +129,7 @@ fn fields_from_ast<'a>(
 ) -> Vec<Field<'a>> {
     let mut bitfield_bits = 0;
 
-    fields
+    let mut fields: Vec<Field<'a>> = fields
     .iter()
     .enumerate()
     .map(|(i, field)| {
@@ -172,7 +172,17 @@ fn fields_from_ast<'a>(
 
         field
     })
-    .collect()
+    .collect();
+
+    if fields.len() == 0 {
+        return fields;
+    }
+
+    let last_idx = fields.len() - 1;
+    let field = &mut fields[last_idx];
+    field.attrs.set_is_last_field();
+
+    fields
 }
 
 pub fn is_primitive_type(ty: &syn::Type, primitive: &str) -> bool {

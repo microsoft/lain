@@ -836,6 +836,62 @@ mod test
         assert_eq!(ptr, std::ptr::null());
     }
 
+    #[test]
+    fn test_incomplete_bitfield() {
+        #[derive(BinarySerialize)]
+        struct IncompleteBitfield {
+            #[lain(bits = 1)]
+            a: u32,
+            #[lain(bits = 1)]
+            b: u32,
+        }
+
+        let mut s = IncompleteBitfield {
+            a: 0,
+            b: 1,
+        };
+
+        assert_eq!(IncompleteBitfield::min_nonzero_elements_size(), 4);
+
+        let mut output = vec![];
+        s.binary_serialize::<_, BigEndian>(&mut output);
+
+        let expected: [u8; 4] = [0x0, 0x0, 0x0, 0x2];
+        compare_slices(&expected[..], output.as_slice());
+    }
+
+    #[test]
+    fn test_padded_serialized_size() {
+        #[derive(BinarySerialize)]
+        #[lain(serialized_size = 2)]
+        struct IncompleteStruct {
+            a: u8,
+        }
+
+        let s = IncompleteStruct {
+            a: 0,
+        };
+
+        let mut output = vec![];
+        s.binary_serialize::<_, BigEndian>(&mut output);
+
+        let expected: [u8; 2] = [0x0, 0x0];
+        compare_slices(&expected[..], output.as_slice());
+
+        #[derive(BinarySerialize)]
+        #[lain(serialized_size = 2)]
+        enum IncompleteEnum {
+            Variant(u8),
+        }
+
+        let s = IncompleteEnum::Variant(0);
+
+        let mut output = vec![];
+        s.binary_serialize::<_, BigEndian>(&mut output);
+
+        compare_slices(&expected[..], output.as_slice());
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

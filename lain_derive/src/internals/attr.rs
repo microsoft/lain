@@ -156,7 +156,8 @@ pub struct Field {
     initializer: Option<TokenStream>,
     little_endian: bool,
     big_endian: bool,
-    weight_to: Option<WeightTo>
+    weight_to: Option<WeightTo>,
+    is_last_field: bool,
 }
 
 impl Field {
@@ -278,7 +279,16 @@ impl Field {
             little_endian: little_endian.get(),
             big_endian: big_endian.get(),
             weight_to: weight_to.get(),
+            is_last_field: false,
         }
+    }
+
+    pub fn set_is_last_field(&mut self) {
+        self.is_last_field = true;
+    }
+
+    pub fn is_last_field(&self) -> bool {
+        return self.is_last_field
     }
 
     pub fn bits(&self) -> Option<usize> {
