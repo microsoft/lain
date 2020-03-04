@@ -803,6 +803,7 @@ mod test
     }
 
     #[test]
+    #[should_panic]
     fn test_buffer_too_small_for_max_size() {
         #[derive(Debug, VariableSizeObject, BinarySerialize, NewFuzzed)]
         struct StructWithFixedSizeVec {
@@ -813,7 +814,7 @@ mod test
         }
 
         let mut constraints = Constraints::new();
-        constraints.max_size(0x201);
+        constraints.max_size(200);
 
         let mut mutator = get_mutator();
         println!("{:?}", StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)));

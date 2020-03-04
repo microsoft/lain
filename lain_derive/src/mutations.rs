@@ -480,11 +480,12 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
         }
     } else {
         quote_spanned! { ty.span() =>
+        // println!("{:?}", constraints);
             let #value_ident = #default_initializer;
         }
     };
 
-    let inc_max_size = increment_max_size(&field, &value_ident);
+    let inc_max_size = decrement_max_size(&field, &value_ident);
     let initializer = quote! {
         #default_constraints 
 
@@ -496,7 +497,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
     (value_ident, field_ident_string, initializer)
 }
 
-fn increment_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
+fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
     let ty = field.ty;
     let _field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
@@ -551,7 +552,7 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
         }
     };
 
-    let inc_max_size = increment_max_size(&field, &value_ident);
+    let inc_max_size = decrement_max_size(&field, &value_ident);
 
     let initializer = quote! {
         #default_constraints 
@@ -625,6 +626,7 @@ fn new_fuzzed_enum_visitor(
 
 fn constraints_prelude() -> TokenStream {
     quote! {
+        //println!("before: {:?}", parent_constraints);
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
@@ -634,10 +636,16 @@ fn constraints_prelude() -> TokenStream {
 
             Some(c)
         });
+        //println!("after: {:?}", parent_constraints);
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
-        if let Some(max) = max_size {
-            max_size = Some(std::cmp::min(Self::min_nonzero_elements_size(), max));
+        if let Some(ref mut max) = max_size {
+            let min_object_size = Self::min_nonzero_elements_size();
+            if min_object_size > *max {
+                panic!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
+            }
+
+            *max -= Self::min_nonzero_elements_size();
         }
     }
 }
