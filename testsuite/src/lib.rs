@@ -906,7 +906,7 @@ mod test {
         let c = ContainingTest { test: Test::Foo };
 
         c.binary_serialize::<_, BigEndian>(&mut output);
-        assert_eq!(output[0], 1);
+        assert_eq!(output[3], 1);
     }
 
     #[test]

@@ -1,12 +1,12 @@
-use proc_macro2::{TokenStream};
-use std::str::FromStr;
-use syn::spanned::Spanned;
-use syn::export::quote::ToTokens;
+use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
+use std::str::FromStr;
+use syn::export::quote::ToTokens;
+use syn::spanned::Spanned;
 
-use crate::internals::{Ctxt, Derive};
-use crate::internals::ast::{Container, Data, Field, Variant, Style, is_primitive_type};
 use crate::dummy;
+use crate::internals::ast::{is_primitive_type, Container, Data, Field, Style, Variant};
+use crate::internals::{Ctxt, Derive};
 
 struct SerializedSizeBodies {
     serialized_size: TokenStream,
@@ -38,7 +38,16 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let serialize_body = binary_serialize_body(&cont);
-    let SerializedSizeBodies { serialized_size, min_nonzero_elements_size, max_default_object_size, min_enum_variant_size } = serialized_size_body(&cont, cont.attrs.serialized_size(), cont.attrs.min_serialized_size());
+    let SerializedSizeBodies {
+        serialized_size,
+        min_nonzero_elements_size,
+        max_default_object_size,
+        min_enum_variant_size,
+    } = serialized_size_body(
+        &cont,
+        cont.attrs.serialized_size(),
+        cont.attrs.min_serialized_size(),
+    );
 
     let lain = cont.attrs.lain_path();
 
@@ -114,16 +123,24 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
 
 fn binary_serialize_body(cont: &Container) -> TokenStream {
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => binary_serialize_enum(variants, &cont.ident),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => {
+            binary_serialize_enum(variants, &cont.ident)
+        }
         Data::Enum(ref _variants) => binary_serialize_unit_enum(&cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => binary_serialize_struct(fields),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => {
+            binary_serialize_struct(fields)
+        }
         Data::Struct(Style::Unit, ref _fields) => TokenStream::new(),
     }
 }
 
-fn serialized_size_body(cont: &Container, size: Option<usize>, min_size: Option<usize>) -> SerializedSizeBodies {
+fn serialized_size_body(
+    cont: &Container,
+    size: Option<usize>,
+    min_size: Option<usize>,
+) -> SerializedSizeBodies {
     if let Some(size) = size.clone() {
-        let size_tokens = quote!{#size};
+        let size_tokens = quote! {#size};
 
         return SerializedSizeBodies {
             serialized_size: size_tokens.clone(),
@@ -134,11 +151,15 @@ fn serialized_size_body(cont: &Container, size: Option<usize>, min_size: Option<
     }
 
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => serialized_size_enum(variants, &cont.ident, size, min_size),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => {
+            serialized_size_enum(variants, &cont.ident, size, min_size)
+        }
         Data::Enum(ref _variants) => serialized_size_unit_enum(&cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => serialized_size_struct(fields),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => {
+            serialized_size_struct(fields)
+        }
         Data::Struct(Style::Unit, ref _fields) => {
-            let zero_size = quote!{0};
+            let zero_size = quote! {0};
             SerializedSizeBodies {
                 serialized_size: zero_size.clone(),
                 min_nonzero_elements_size: zero_size.clone(),
@@ -149,10 +170,7 @@ fn serialized_size_body(cont: &Container, size: Option<usize>, min_size: Option<
     }
 }
 
-fn binary_serialize_enum (
-    variants: &[Variant],
-    cont_ident: &syn::Ident,
-) ->  TokenStream {
+fn binary_serialize_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
     let match_arms = binary_serialize_enum_visitor(variants, cont_ident);
 
     quote! {
@@ -170,9 +188,7 @@ fn binary_serialize_unit_enum(cont_ident: &syn::Ident) -> TokenStream {
     }
 }
 
-fn binary_serialize_struct (
-    fields: &[Field],
-) -> TokenStream {
+fn binary_serialize_struct(fields: &[Field]) -> TokenStream {
     let serializers = binary_serialize_struct_visitor(fields);
 
     quote! {
@@ -182,40 +198,44 @@ fn binary_serialize_struct (
     }
 }
 
-fn binary_serialize_struct_visitor(
-    fields: &[Field],
-) -> Vec<TokenStream> {
+fn binary_serialize_struct_visitor(fields: &[Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let (_field_ident, _field_ident_string, serializer) = field_serializer(field, "self.", false);
+            let (_field_ident, _field_ident_string, serializer) =
+                field_serializer(field, "self.", false);
 
             serializer
         })
         .collect()
 }
 
-fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: bool) -> (TokenStream, String, TokenStream) {
+fn field_serializer(
+    field: &Field,
+    name_prefix: &'static str,
+    is_destructured: bool,
+) -> (TokenStream, String, TokenStream) {
     let ty = &field.ty;
-    let field_ident_string = match field.member{
+    let field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
+    let value_ident =
+        TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
     let borrow = if is_destructured {
         TokenStream::new()
     } else {
-        quote!{&}
+        quote! {&}
     };
 
     let endian = if field.attrs.big_endian() {
-        quote!{_lain::byteorder::BigEndian}
+        quote! {_lain::byteorder::BigEndian}
     } else if field.attrs.little_endian() {
-        quote!{_lain::byteorder::LittleEndian}
+        quote! {_lain::byteorder::LittleEndian}
     } else {
         // inherit
-        quote!{E}
+        quote! {E}
     };
 
     let serialize_stmts = if let Some(bits) = field.attrs.bits() {
@@ -240,10 +260,10 @@ fn field_serializer(field: &Field, name_prefix: &'static str, is_destructured: b
         let bitfield_value = if field.attrs.bitfield_type().is_some() {
             quote_spanned! {field.ty.span() => #value_ident.to_primitive()}
         } else {
-            quote_spanned!{field.original.span() => #value_ident}
+            quote_spanned! {field.original.span() => #value_ident}
         };
 
-        let mut bitfield_setter = quote_spanned!{ field.ty.span() =>
+        let mut bitfield_setter = quote_spanned! { field.ty.span() =>
             bitfield |= ((#bitfield_value as #bitfield_type & #bit_mask as #bitfield_type) << #bit_shift) as u64;
         };
 
@@ -276,16 +296,20 @@ fn binary_serialize_enum_visitor(
         .iter()
         .map(|variant| {
             let variant_ident = &variant.ident;
-            let full_ident = quote!{#cont_ident::#variant_ident};
+            let full_ident = quote! {#cont_ident::#variant_ident};
             let mut field_identifiers = vec![];
 
-            let field_serializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, _field_ident_string, initializer) = field_serializer(field, "__field", true);
-                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
+            let field_serializers: Vec<TokenStream> = variant
+                .fields
+                .iter()
+                .map(|field| {
+                    let (value_ident, _field_ident_string, initializer) =
+                        field_serializer(field, "__field", true);
+                    field_identifiers.push(quote_spanned! { field.member.span() => #value_ident });
 
-                initializer
-            })
-            .collect();
+                    initializer
+                })
+                .collect();
 
             let match_arm = quote! {
                 #full_ident(#(ref #field_identifiers,)*) => {
@@ -300,19 +324,35 @@ fn binary_serialize_enum_visitor(
     match_arms
 }
 
-fn serialized_size_enum (
+fn serialized_size_enum(
     variants: &[Variant],
     cont_ident: &syn::Ident,
     size: Option<usize>,
     min_size: Option<usize>,
-) ->  SerializedSizeBodies {
-    let match_arms = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::SerializedSize);
-    let nonzero_variants = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinNonzeroElements);
-    let max_obj = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MaxDefaultObjectSize);
-    let min_variant = serialized_size_enum_visitor(variants, cont_ident, SerializedSizeVisitorType::MinEnumVariantSize);
+) -> SerializedSizeBodies {
+    let match_arms = serialized_size_enum_visitor(
+        variants,
+        cont_ident,
+        SerializedSizeVisitorType::SerializedSize,
+    );
+    let nonzero_variants = serialized_size_enum_visitor(
+        variants,
+        cont_ident,
+        SerializedSizeVisitorType::MinNonzeroElements,
+    );
+    let max_obj = serialized_size_enum_visitor(
+        variants,
+        cont_ident,
+        SerializedSizeVisitorType::MaxDefaultObjectSize,
+    );
+    let min_variant = serialized_size_enum_visitor(
+        variants,
+        cont_ident,
+        SerializedSizeVisitorType::MinEnumVariantSize,
+    );
 
     let serialized_size = if let Some(size) = size {
-        quote!{#size}
+        quote! {#size}
     } else {
         quote! {
             match *self {
@@ -320,7 +360,7 @@ fn serialized_size_enum (
             }
         }
     };
-    
+
     let min_nonzero = if let Some(min_size) = min_size {
         quote! {#min_size}
     } else {
@@ -356,14 +396,15 @@ fn serialized_size_unit_enum(cont_ident: &syn::Ident) -> SerializedSizeBodies {
     }
 }
 
-fn serialized_size_struct (
-    fields: &[Field],
-) -> SerializedSizeBodies {
-    let serialized_size = serialized_size_struct_visitor(fields, SerializedSizeVisitorType::SerializedSize);
+fn serialized_size_struct(fields: &[Field]) -> SerializedSizeBodies {
+    let serialized_size =
+        serialized_size_struct_visitor(fields, SerializedSizeVisitorType::SerializedSize);
 
-    let min_nonzero = serialized_size_struct_visitor(fields, SerializedSizeVisitorType::MinNonzeroElements);
+    let min_nonzero =
+        serialized_size_struct_visitor(fields, SerializedSizeVisitorType::MinNonzeroElements);
 
-    let max_default = serialized_size_struct_visitor(fields, SerializedSizeVisitorType::MaxDefaultObjectSize);
+    let max_default =
+        serialized_size_struct_visitor(fields, SerializedSizeVisitorType::MaxDefaultObjectSize);
 
     SerializedSizeBodies {
         serialized_size: quote! {0 #(+#serialized_size)* },
@@ -380,31 +421,38 @@ fn serialized_size_struct_visitor(
     fields
         .iter()
         .map(|field| {
-            let (_field_ident, _field_ident_string, serialized_size) = field_serialized_size(field, "self.", false, visitor_type);
+            let (_field_ident, _field_ident_string, serialized_size) =
+                field_serialized_size(field, "self.", false, visitor_type);
 
             serialized_size
         })
         .collect()
 }
 
-fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructured: bool, visitor_type: SerializedSizeVisitorType) -> (TokenStream, String, TokenStream) {
+fn field_serialized_size(
+    field: &Field,
+    name_prefix: &'static str,
+    is_destructured: bool,
+    visitor_type: SerializedSizeVisitorType,
+) -> (TokenStream, String, TokenStream) {
     let ty = &field.ty;
-    let field_ident_string = match field.member{
+    let field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
+    let value_ident =
+        TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
     let borrow = if is_destructured {
         TokenStream::new()
     } else {
-        quote!{&}
+        quote! {&}
     };
 
     let serialized_size_stmts = if let Some(bits) = field.attrs.bits() {
         let bit_shift = field.attrs.bit_shift().unwrap();
         let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
-        let is_last_field= field.attrs.is_last_field();
+        let is_last_field = field.attrs.is_last_field();
 
         let type_total_bits = if is_primitive_type(bitfield_type, "u8") {
             8
@@ -421,42 +469,52 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
         let bitfield_value = if field.attrs.bitfield_type().is_some() {
             quote_spanned! {field.original.span() => #borrow#value_ident.to_primitive()}
         } else {
-            quote_spanned!{ field.original.span() => #borrow#value_ident}
+            quote_spanned! { field.original.span() => #borrow#value_ident}
         };
 
         // kind of a hack but only emit the size of the bitfield for the first element
         if bits + bit_shift == type_total_bits || is_last_field {
             match visitor_type {
-                SerializedSizeVisitorType::SerializedSize => quote_spanned!{field.original.span() => _lain::traits::SerializedSize::serialized_size(#bitfield_value)},
-                SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize => quote_spanned!{field.original.span() => <#bitfield_type>::min_nonzero_elements_size()},
-                SerializedSizeVisitorType::MaxDefaultObjectSize => quote_spanned!{field.original.span() => <#bitfield_type>::max_default_object_size()},
+                SerializedSizeVisitorType::SerializedSize => {
+                    quote_spanned! {field.original.span() => _lain::traits::SerializedSize::serialized_size(#bitfield_value)}
+                }
+                SerializedSizeVisitorType::MinNonzeroElements
+                | SerializedSizeVisitorType::MinEnumVariantSize => {
+                    quote_spanned! {field.original.span() => <#bitfield_type>::min_nonzero_elements_size()}
+                }
+                SerializedSizeVisitorType::MaxDefaultObjectSize => {
+                    quote_spanned! {field.original.span() => <#bitfield_type>::max_default_object_size()}
+                }
             }
         } else {
-            quote!{0 /* bitfield */}
+            quote! {0 /* bitfield */}
         }
     } else {
         match visitor_type {
-            SerializedSizeVisitorType::SerializedSize => quote_spanned!{ field.original.span() => _lain::traits::SerializedSize::serialized_size(#borrow#value_ident)},
-            SerializedSizeVisitorType::MinNonzeroElements | SerializedSizeVisitorType::MinEnumVariantSize  => {
-                match ty {
-                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() => {
-                        let min = field.attrs.min().unwrap();
-                        quote_spanned!{ field.original.span() => <#ty>::min_nonzero_elements_size() * #min }
-                    },
-                    _ => {
-                            quote_spanned!{ field.original.span() => (<#ty>::min_nonzero_elements_size() ) }
-                    }
-                }
+            SerializedSizeVisitorType::SerializedSize => {
+                quote_spanned! { field.original.span() => _lain::traits::SerializedSize::serialized_size(#borrow#value_ident)}
             }
-            SerializedSizeVisitorType::MaxDefaultObjectSize => {
-                match ty {
-                    syn::Type::Path(ref p) if p.path.segments[0].ident == "Vec" && field.attrs.max().is_some() => {
-                        let max = field.attrs.max().unwrap();
-                        quote_spanned!{ field.original.span() => <#ty>::max_default_object_size() * #max }
-                    },
-                    _ => {
-                            quote_spanned!{ field.original.span() => (<#ty>::max_default_object_size() ) }
-                    }
+            SerializedSizeVisitorType::MinNonzeroElements
+            | SerializedSizeVisitorType::MinEnumVariantSize => match ty {
+                syn::Type::Path(ref p)
+                    if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() =>
+                {
+                    let min = field.attrs.min().unwrap();
+                    quote_spanned! { field.original.span() => <#ty>::min_nonzero_elements_size() * #min }
+                }
+                _ => {
+                    quote_spanned! { field.original.span() => (<#ty>::min_nonzero_elements_size() ) }
+                }
+            },
+            SerializedSizeVisitorType::MaxDefaultObjectSize => match ty {
+                syn::Type::Path(ref p)
+                    if p.path.segments[0].ident == "Vec" && field.attrs.max().is_some() =>
+                {
+                    let max = field.attrs.max().unwrap();
+                    quote_spanned! { field.original.span() => <#ty>::max_default_object_size() * #max }
+                }
+                _ => {
+                    quote_spanned! { field.original.span() => (<#ty>::max_default_object_size() ) }
                 }
             },
         }
@@ -468,25 +526,30 @@ fn field_serialized_size(field: &Field, name_prefix: &'static str, is_destructur
 fn serialized_size_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-    visitor_type: SerializedSizeVisitorType
+    visitor_type: SerializedSizeVisitorType,
 ) -> Vec<TokenStream> {
     let match_arms = variants
         .iter()
         .map(|variant| {
             let variant_ident = &variant.ident;
-            let full_ident = quote!{#cont_ident::#variant_ident};
+            let full_ident = quote! {#cont_ident::#variant_ident};
             let mut field_identifiers = vec![];
 
-            let field_sizes: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, _field_ident_string, field_size) = field_serialized_size(field, "__field", true, visitor_type);
-                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
+            let field_sizes: Vec<TokenStream> = variant
+                .fields
+                .iter()
+                .map(|field| {
+                    let (value_ident, _field_ident_string, field_size) =
+                        field_serialized_size(field, "__field", true, visitor_type);
+                    field_identifiers.push(quote_spanned! { field.member.span() => #value_ident });
 
-                field_size
-            })
-            .collect();
+                    field_size
+                })
+                .collect();
 
             match visitor_type {
-                SerializedSizeVisitorType::SerializedSize | SerializedSizeVisitorType::MinEnumVariantSize  => {
+                SerializedSizeVisitorType::SerializedSize
+                | SerializedSizeVisitorType::MinEnumVariantSize => {
                     quote_spanned! { variant.original.span() =>
                         #full_ident(#(ref #field_identifiers,)*) => {
                             0 #(+#field_sizes)*
@@ -495,7 +558,7 @@ fn serialized_size_enum_visitor(
                 }
                 _ => quote_spanned! { variant.original.span() =>
                     0 #(+#field_sizes)*
-                }
+                },
             }
         })
         .collect();
