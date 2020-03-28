@@ -229,6 +229,8 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
     }
 
     let expanded = quote! {
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         impl #impl_generics ::lain::traits::NewFuzzed for #name #ty_generics #where_clause {
             type RangeType = u8;
 

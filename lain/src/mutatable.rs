@@ -172,6 +172,8 @@ fn shrink_vec<T, R: Rng>(vec: &mut Vec<T>, mutator: &mut Mutator<R>) {
         num_elements = mutator.gen_range(0, vec.len() + 1);
     }
 
+    num_elements = std::cmp::min(num_elements, vec.len());
+
     // Special case probably isn't required here, but better to be explicit
     if num_elements == vec.len() {
         vec.drain(..);
@@ -232,6 +234,11 @@ where
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
+        if T::min_nonzero_elements_size() == 0 {
+            warn!("Size of element in vec is 0... returning early");
+            return;
+        }
+
         // 1% chance to resize this vec
         if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(1.0) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
@@ -435,6 +442,40 @@ impl Mutatable for *mut std::ffi::c_void {
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         // nop
+    }
+}
+
+impl<T> Mutatable for Option<T> where T: Mutatable + NewFuzzed {
+    type RangeType = <T as Mutatable>::RangeType;
+
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
+        match self {
+            Some(inner) => {
+                // small chance to make this None
+                if mutator.gen_chance(1.0) {
+                    *self = None;
+                } else {
+                    inner.mutate(mutator, constraints);
+                }
+            }
+            None => {
+                if mutator.gen_chance(1.0) {
+                    // hack to avoid converting between constraints types even though
+                    // they should be the same...
+                    let mut new_item = T::new_fuzzed(mutator, None);
+                    if constraints.is_some() {
+                        // force the constraints if they were provided
+                        new_item.mutate(mutator, constraints);
+                    }
+
+                    *self = Some(new_item);
+                }
+            }
+        }
     }
 }
 

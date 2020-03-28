@@ -257,6 +257,18 @@ impl BinarySerialize for *mut std::ffi::c_void {
     }
 }
 
+impl<T> BinarySerialize for Option<T> where T: BinarySerialize {
+    #[inline(always)]
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        if let Some(ref inner) = self {
+            BinarySerialize::binary_serialize::<_, E>(inner, buffer)
+        } else {
+            0
+        }
+    }
+}
+
+
 macro_rules! impl_binary_serialize {
     ( $($name:ident),* ) => {
         $(
@@ -377,5 +389,26 @@ impl SerializedSize for *mut std::ffi::c_void {
     #[inline]
     fn max_default_object_size() -> usize {
         std::mem::size_of::<usize>()
+    }
+}
+
+impl<T> SerializedSize for Option<T> where T: SerializedSize {
+    #[inline]
+    fn serialized_size(&self) -> usize {
+        if let Some(ref inner) = self {
+            inner.serialized_size();
+        }
+
+        0
+    }
+
+    #[inline]
+    fn min_nonzero_elements_size() -> usize {
+        T::min_nonzero_elements_size()
+    }
+
+    #[inline]
+    fn max_default_object_size() -> usize {
+        T::max_default_object_size()
     }
 }

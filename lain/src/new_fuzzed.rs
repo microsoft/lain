@@ -9,6 +9,23 @@ use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::{char, cmp};
 
+impl<T> NewFuzzed for Option<T>
+where T: NewFuzzed
+{
+    type RangeType = T::RangeType;
+
+    default fn new_fuzzed<R: Rng>(
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    ) -> Option<T> {
+        if mutator.gen_chance(75.0) {
+            Some(T::new_fuzzed(mutator, constraints))
+        } else {
+            None
+        }
+    }
+}
+
 impl<T> NewFuzzed for Vec<T>
 where
     T: NewFuzzed + SerializedSize,
@@ -19,7 +36,7 @@ where
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) -> Vec<T> {
-        const MAX_NUM_ELEMENTS: usize = 0x1000;
+        const MAX_NUM_ELEMENTS: usize = 0x200;
 
         let mut min: Self::RangeType;
         let mut max: Self::RangeType;
@@ -27,6 +44,11 @@ where
         let max_size: Option<usize>;
         let mut used_size: usize = 0;
         let mut output: Vec<T>;
+
+        if T::min_nonzero_elements_size() == 0 {
+            warn!("Size of element in vec is 0... returning early");
+            return vec![];
+        }
 
         trace!("Generating random Vec with constraints: {:#?}", constraints);
 
@@ -44,8 +66,9 @@ where
                     if constraints.max.is_some()
                         && mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX)
                     {
-                        // we just hope this doesn't overflow.
-                        max = constraints.max.unwrap() * 2;
+                        if let Some(new_max) = constraints.max.unwrap().checked_mul(2) {
+                            max = new_max;
+                        }
                     }
                 }
 
@@ -118,6 +141,11 @@ where
         let mut output: Vec<T>;
 
         trace!("Generating random Vec with constraints: {:#?}", constraints);
+
+        if T::min_nonzero_elements_size() == 0 {
+            warn!("Size of element in vec is 0... returning early");
+            return vec![];
+        }
 
         // if no min/max were supplied, we'll take a conservative approach of 64 elements
         match constraints {
@@ -621,10 +649,14 @@ macro_rules! impl_new_fuzzed {
                     // if no min/max were supplied, we'll take a conservative approach of 64 elements
                     match constraints {
                         Some(ref constraints) => {
+                            let mut ignore_min = true;
+                            let mut ignore_max = true;
+
                             min = if let Some(ref min) = constraints.min {
                                 if mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX) {
                                     $name::min_value()
                                 } else {
+                                    ignore_min = false;
                                     *min
                                 }
                             } else {
@@ -635,6 +667,7 @@ macro_rules! impl_new_fuzzed {
                                 if mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX) {
                                     $name::max_value()
                                 } else {
+                                    ignore_min = false;
                                     *max
                                 }
                             } else {
@@ -643,9 +676,18 @@ macro_rules! impl_new_fuzzed {
 
                             weight = constraints.weighted;
 
+                            // these conditions being met should be rare, so bump the chance to 75%
+                            if ignore_min && ignore_max && mutator.gen_chance(75.0) {
+                                return $name::select_dangerous_number(&mut mutator.rng);
+                            }
+
                             return mutator.gen_weighted_range(min, max, weight);
                         }
                         None => {
+                            if mutator.gen_chance(25.0) {
+                                return $name::select_dangerous_number(&mut mutator.rng);
+                            }
+
                             return mutator.rng.gen();
                         }
                     }

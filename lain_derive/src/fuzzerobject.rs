@@ -102,7 +102,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
                                     Some(c)
                                 });
 
-                                <#field_ty>::mutate(#ident, mutator, constraints.as_ref());
+                                <#field_ty>::m(#ident, mutator, constraints.as_ref());
                                 if <#field_ty>::is_variable_size() {
                                     max_size = max_size.map(|max| {
                                         // in case a user didn't appropriately supply a max size constraint (i.e. a max

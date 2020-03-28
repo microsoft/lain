@@ -24,6 +24,8 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
     let lain = cont.attrs.lain_path();
 
     let impl_block = quote! {
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         #[automatically_derived]
         impl #impl_generics #lain::traits::Mutatable for #ident #ty_generics #where_clause {
             // structs always have a RangeType of u8 since they shouldn't
@@ -59,6 +61,8 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
     let lain = cont.attrs.lain_path();
 
     let impl_block = quote! {
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         #[automatically_derived]
         impl #impl_generics #lain::traits::NewFuzzed for #ident #ty_generics #where_clause {
             type RangeType = u8;
@@ -480,7 +484,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
         }
     } else {
         quote_spanned! { ty.span() =>
-        // println!("{:?}", constraints);
+        //  println!("{:?}", constraints);
             let #value_ident = #default_initializer;
         }
     };
@@ -506,6 +510,7 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
 
     let zero_tokens = TokenStream::from_str("0").unwrap();
     let field_min_items = field.attrs.min().unwrap_or(&zero_tokens);
+    let field_max_items = field.attrs.min().unwrap_or(&zero_tokens);
     let ty_size = quote!{
         ((<#ty>::min_nonzero_elements_size() * #field_min_items) as isize)
     };
@@ -626,7 +631,7 @@ fn new_fuzzed_enum_visitor(
 
 fn constraints_prelude() -> TokenStream {
     quote! {
-        //println!("before: {:?}", parent_constraints);
+        // println!("before: {:?}", parent_constraints);
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
@@ -636,16 +641,17 @@ fn constraints_prelude() -> TokenStream {
 
             Some(c)
         });
-        //println!("after: {:?}", parent_constraints);
+        // println!("after: {:?}", parent_constraints);
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
         if let Some(ref mut max) = max_size {
             let min_object_size = Self::min_nonzero_elements_size();
             if min_object_size > *max {
-                panic!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
+                warn!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
+                *max = Self::min_nonzero_elements_size();
+            } else {
+                *max -= Self::min_nonzero_elements_size();
             }
-
-            *max -= Self::min_nonzero_elements_size();
         }
     }
 }

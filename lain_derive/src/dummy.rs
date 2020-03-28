@@ -23,6 +23,8 @@ pub fn wrap_in_const(
     };
 
     quote! {
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
         const #dummy_const: () = {
             #use_lain

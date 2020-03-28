@@ -43,6 +43,8 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
     let lain = cont.attrs.lain_path();
 
     let impl_block = quote! {
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         #[automatically_derived]
         impl #impl_generics #lain::traits::BinarySerialize for #ident #ty_generics #where_clause {
             fn binary_serialize<W: std::io::Write, E: #lain::byteorder::ByteOrder>(&self, buffer: &mut W) -> usize {
@@ -68,6 +70,8 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
         }
 
         // TODO: Split this into its own derive
+        #[allow(clippy)]
+        #[allow(unknown_lints)]
         #[automatically_derived]
         impl #impl_generics #lain::traits::SerializedSize for #ident #ty_generics #where_clause {
             #[inline]

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 pub const CHANCE_TO_REPEAT_ARRAY_VALUE: f32 = 1.0;
 pub const CHANCE_TO_PICK_INVALID_ENUM: f32 = 1.0;
 pub const CHANCE_TO_IGNORE_MIN_MAX: f32 = 1.0;
-pub const CHANCE_TO_IGNORE_POST_MUTATION: f32 = 1.0;
+pub const CHANCE_TO_IGNORE_POST_MUTATION: f32 = 0.5;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, NewFuzzed)]
