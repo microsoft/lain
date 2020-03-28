@@ -3,13 +3,12 @@
 extern crate lain;
 
 #[cfg(test)]
-mod test
-{
+mod test {
     use lain::byteorder::{BigEndian, LittleEndian};
     use lain::hexdump;
     use lain::prelude::*;
     use lain::rand::rngs::SmallRng;
-    use lain::rand::{SeedableRng};
+    use lain::rand::SeedableRng;
     use std::io::BufWriter;
 
     #[derive(Debug, NewFuzzed, Clone, BinarySerialize)]
@@ -723,7 +722,7 @@ mod test
         struct Bar {
             a: u32,
 
-            #[lain(min=0, max=20)]
+            #[lain(min = 0, max = 20)]
             b: Vec<u8>,
         }
 
@@ -739,7 +738,6 @@ mod test
 
         let mut constraints = Constraints::new();
         constraints.max_size(MAX_SIZE);
-
 
         let mut instance = TestEnum::new_fuzzed(&mut mutator, Some(&constraints));
         for _i in 0..1000 {
@@ -759,7 +757,6 @@ mod test
     #[test]
     /// This test mostly ensures that compilation didn't break
     fn simple_enums_work() {
-
         #[derive(Copy, Clone, NewFuzzed, Mutatable, BinarySerialize, ToPrimitiveU8)]
         enum SimpleEnum {
             Foo = 1,
@@ -817,7 +814,10 @@ mod test
         constraints.max_size(200);
 
         let mut mutator = get_mutator();
-        println!("{:?}", StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)));
+        println!(
+            "{:?}",
+            StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints))
+        );
     }
 
     #[test]
@@ -847,10 +847,7 @@ mod test
             b: u32,
         }
 
-        let mut s = IncompleteBitfield {
-            a: 0,
-            b: 1,
-        };
+        let mut s = IncompleteBitfield { a: 0, b: 1 };
 
         assert_eq!(IncompleteBitfield::min_nonzero_elements_size(), 4);
 
@@ -869,9 +866,7 @@ mod test
             a: u8,
         }
 
-        let s = IncompleteStruct {
-            a: 0,
-        };
+        let s = IncompleteStruct { a: 0 };
 
         let mut output = vec![];
         s.binary_serialize::<_, BigEndian>(&mut output);
@@ -893,6 +888,7 @@ mod test
         compare_slices(&expected[..], output.as_slice());
     }
 
+    #[test]
     fn test_serializing_enum_as_bitfield() {
         #[derive(Copy, Clone, BinarySerialize, ToPrimitiveU8)]
         #[repr(u8)]
@@ -907,12 +903,28 @@ mod test
         }
 
         let mut output = vec![];
-        let c = ContainingTest {
-            test: Test::Foo,
-        };
+        let c = ContainingTest { test: Test::Foo };
 
         c.binary_serialize::<_, BigEndian>(&mut output);
         assert_eq!(output[0], 1);
+    }
+
+    #[test]
+    fn test_invalid_zeroing_panic() {
+        #[derive(Copy, Clone, NewFuzzed, BinarySerialize, ToPrimitiveU8)]
+        #[repr(u8)]
+        enum Foo {
+            A = 1,
+            B = 2,
+        }
+
+        #[derive(NewFuzzed, BinarySerialize)]
+        struct Bar {
+            foo: Foo,
+        }
+
+        let mut mutator = get_mutator();
+        Bar::new_fuzzed(&mut mutator, None);
     }
 
     fn compare_slices(expected: &[u8], actual: &[u8]) {

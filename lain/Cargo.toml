@@ -21,7 +21,7 @@ num-derive = "0.2"
 num = "0.2"
 lazy_static = "1.2"
 serde = { version = "1.0" , optional = true, features = ["derive"] }
-field-offset = "0.1.1"
+field-offset = "0.3"
 
 [features]
 default_features = []
