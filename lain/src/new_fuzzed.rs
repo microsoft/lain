@@ -667,7 +667,7 @@ macro_rules! impl_new_fuzzed {
                                 if mutator.gen_chance(crate::mutator::CHANCE_TO_IGNORE_MIN_MAX) {
                                     $name::max_value()
                                 } else {
-                                    ignore_min = false;
+                                    ignore_max = false;
                                     *max
                                 }
                             } else {

@@ -248,7 +248,7 @@ fn new_fuzzed_enum (
     cont_ident: &syn::Ident,
 ) ->  TokenStream {
     let constraints_prelude = constraints_prelude();
-    let (weights, new_fuzzed_fields) = new_fuzzed_enum_visitor(variants, cont_ident);
+    let (weights, new_fuzzed_fields, ignore_chances) = new_fuzzed_enum_visitor(variants, cont_ident);
     let variant_count = new_fuzzed_fields.len();
 
     if new_fuzzed_fields.is_empty() {
@@ -276,6 +276,7 @@ fn new_fuzzed_enum (
         use _lain::rand::distributions::Distribution;
 
         static weights: [u64; #variant_count] = [#(#weights,)*];
+        static ignore_chances: [f32; #variant_count] = [#(#ignore_chances,)*];
 
         _lain::lazy_static::lazy_static! {
             static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
@@ -284,7 +285,22 @@ fn new_fuzzed_enum (
 
         #constraints_prelude
 
-        let idx: usize = dist.sample(&mut mutator.rng);
+        // compiler analysis doesn't think we loop at least once, so it thinks this
+        // var is uninitialized. this is a stupid bypass
+        let mut idx: Option<usize> = None;
+        // loop a max of 5 times to avoid an infinite loop
+        for _i in 0..5 {
+            idx = Some(dist.sample(&mut mutator.rng));
+            let chance = ignore_chances[idx.unwrap()];
+
+            // negate the gen_chance call since this is a chance to *ignore*
+            if chance >= 100.0 || !mutator.gen_chance(chance) {
+                break;
+            }
+        }
+
+        let idx = idx.unwrap();
+
         match idx {
             #(#match_arms)*
             _ => unreachable!(),
@@ -293,7 +309,7 @@ fn new_fuzzed_enum (
 }
 
 fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
-    let (weights, variant_tokens) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
+    let (weights, variant_tokens, ignore_chances) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
 
     if variant_tokens.is_empty() {
         return quote!{Default::default()};
@@ -301,13 +317,12 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenS
 
     let variant_count = variant_tokens.len();
 
-
     quote! {
         use _lain::rand::seq::SliceRandom;
         use _lain::rand::distributions::Distribution;
 
         static options: [#cont_ident; #variant_count] = [#(#variant_tokens,)*];
-
+        static ignore_chances: [f32; #variant_count] = [#(#ignore_chances,)*];
         static weights: [u64; #variant_count] = [#(#weights,)*];
 
         _lain::lazy_static::lazy_static! {
@@ -315,8 +330,23 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenS
                 _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
         }
 
-        let idx: usize = dist.sample(&mut mutator.rng);
-        options[idx]
+        // this shouldn't need to be an option but is because the compiler analysis
+        // doesn't think the loop will go at least once
+        let mut option: Option<#cont_ident> = None;
+
+        // loop a max of 5 times so we don't infinite loop
+        for _i in 0..5 {
+            let idx: usize = dist.sample(&mut mutator.rng);
+            option = Some(options[idx]);
+
+            let chance = ignore_chances[idx];
+            // negate gen_chance since it's a chance to *ignore*
+            if chance >= 100.0 || !mutator.gen_chance(chance) {
+                break;
+            }
+        }
+
+        option.unwrap()
     }
 }
 
@@ -572,32 +602,38 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
 fn new_fuzzed_unit_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<TokenStream>) {
+) -> (Vec<u64>, Vec<TokenStream>, Vec<f32>) {
     let mut weights = vec![];
+    let mut ignore_chances = vec![];
 
     let variants = variants.iter().filter_map(|variant| {
-        if variant.attrs.ignore() || variant.attrs.ignore_chance().is_some() {
+        if variant.attrs.ignore() {
             None
         } else {
             let variant_ident = &variant.ident;
+
             weights.push(variant.attrs.weight().unwrap_or(1));
+            ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+
             Some(quote!{#cont_ident::#variant_ident})
         }
     })
     .collect();
 
-    (weights, variants)
+    (weights, variants, ignore_chances)
 }
 
 fn new_fuzzed_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<TokenStream>) {
+) -> (Vec<u64>, Vec<TokenStream>, Vec<f32>) {
     let mut weights = vec![];
+    let mut ignore_chances = vec![];
+
     let initializers = variants
         .iter()
         .filter_map(|variant| {
-            if variant.attrs.ignore() || variant.attrs.ignore_chance().is_some() {
+            if variant.attrs.ignore() {
                 return None;
             }
 
@@ -607,7 +643,9 @@ fn new_fuzzed_enum_visitor(
 
             let field_initializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
                 let (value_ident, _field_ident_string, initializer) = field_initializer(field, "__field");
+
                 field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
+                ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
 
                 initializer
             })
@@ -625,7 +663,7 @@ fn new_fuzzed_enum_visitor(
         })
         .collect();
 
-    (weights, initializers)
+    (weights, initializers, ignore_chances)
 }
 
 fn constraints_prelude() -> TokenStream {

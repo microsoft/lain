@@ -23,6 +23,3 @@ harness = false
 [[bench]]
 name = "benchmark_generating_fuzzed_struct"
 harness = false
-
-[profile.release]
-debug = true
