@@ -111,7 +111,7 @@ fn mutatable_enum (
 
         match *self {
             #(#match_arms)*
-            _ => { /* these are ignored */ },
+            _ => { /* ignore these */ }
         }
     }
 }
@@ -210,7 +210,6 @@ fn mutatable_enum_visitor(
                 #full_ident(#(ref mut #field_identifiers,)*) => {
                     #(#field_mutators)*
                 }
-                _ => { /* these are ignored */ }
             };
 
             Some(match_arm)
@@ -577,7 +576,7 @@ fn new_fuzzed_unit_enum_visitor(
     let mut weights = vec![];
 
     let variants = variants.iter().filter_map(|variant| {
-        if variant.attrs.ignore() {
+        if variant.attrs.ignore() || variant.attrs.ignore_chance().is_some() {
             None
         } else {
             let variant_ident = &variant.ident;
@@ -598,7 +597,7 @@ fn new_fuzzed_enum_visitor(
     let initializers = variants
         .iter()
         .filter_map(|variant| {
-            if variant.attrs.ignore() {
+            if variant.attrs.ignore() || variant.attrs.ignore_chance().is_some() {
                 return None;
             }
 

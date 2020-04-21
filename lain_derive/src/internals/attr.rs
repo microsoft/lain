@@ -344,6 +344,7 @@ impl Field {
 pub struct Variant {
     weight: Option<u64>,
     ignore: bool,
+    ignore_chance: Option<f32>,
 }
 
 impl Variant {
@@ -351,6 +352,7 @@ impl Variant {
     pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
         let mut weight = Attr::none(cx, WEIGHT);
         let mut ignore = BoolAttr::none(cx, IGNORE);
+        let mut ignore_chance =  Attr::none(cx, IGNORE_CHANCE);
 
         for meta_items in variant.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
@@ -366,6 +368,16 @@ impl Variant {
                     // `#[lain(ignore)]`
                     Meta(Word(ref word)) if word == IGNORE => {
                         ignore.set_true(word);
+                    }
+                    // `#[lain(ignore_chance = 99.0)]`
+                    Meta(NameValue(ref m)) if m.ident == IGNORE_CHANCE => {
+                        if let Float(ref f) = m.lit {
+                            ignore_chance.set(&m.ident, f.value() as f32);
+                        } else if let Int(ref i) = m.lit {
+                            ignore_chance.set(&m.ident, i.value() as f32);
+                        } else {
+                            cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
+                        }
                     }
                     Meta(ref meta_item) => {
                         cx.error_spanned_by(
@@ -383,6 +395,7 @@ impl Variant {
         Variant {
             weight: weight.get(),
             ignore: ignore.get(),
+            ignore_chance: ignore_chance.get(),
         }
     }
 
@@ -392,6 +405,10 @@ impl Variant {
 
     pub fn ignore(&self) -> bool {
         self.ignore
+    }
+
+    pub fn ignore_chance(&self) -> Option<f32> {
+        self.ignore_chance
     }
 }
 
