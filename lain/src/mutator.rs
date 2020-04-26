@@ -2,6 +2,7 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 
 use crate::rand::distributions::uniform::{SampleBorrow, SampleUniform};
+use crate::rand;
 use crate::traits::*;
 use crate::types::*;
 use num::{Bounded, NumCast};
@@ -118,6 +119,10 @@ impl<R: Rng> Mutator<R> {
         self.corpus_state = state;
     }
 
+    pub fn set_total_fields(&mut self, count: usize) {
+        self.corpus_state.target_total_fields += count;
+    }
+
     /// Generates a random choice of the given type
     pub fn gen<T: 'static>(&mut self) -> T
     where
@@ -143,7 +148,7 @@ impl<R: Rng> Mutator<R> {
     {
         // info!("{:?}", self.mode());
         // info!("num is: {}", mn);
-        // info!("{}, {}, {}, {}", self.corpus_state.fields_fuzzed, self.corpus_state.targeted_field_idx, self.corpus_state.target_total_fields, self.corpus_state.target_total_passes);
+        // info!("Fields Fuzzed: {}, Targeted Field Index:  {}, Target Total Fields: {}, Total Passe: {}", self.corpus_state.fields_fuzzed, self.corpus_state.targeted_field_idx, self.corpus_state.target_total_fields, self.corpus_state.target_total_passes);
         self.corpus_state.fields_fuzzed += 1;
 
         if self.mode() != MutatorMode::Havoc && self.corpus_state.finished_iteration
@@ -224,6 +229,7 @@ impl<R: Rng> Mutator<R> {
             }
             MutatorMode::Havoc => {
                 // stay in havoc mode since we've exhausted all other states
+                self.corpus_state.targeted_field_idx = rand::thread_rng().gen_range(0, self.corpus_state.target_total_fields + 1);
             }
         }
 
