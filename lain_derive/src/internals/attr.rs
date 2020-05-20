@@ -1,16 +1,16 @@
 use crate::internals::symbol::*;
 use crate::internals::Ctxt;
 use proc_macro2::{Group, Span, TokenStream, TokenTree};
-use quote::{ToTokens, quote_spanned, quote};
+use quote::{quote, quote_spanned, ToTokens};
 use std::borrow::Cow;
 use std::str::FromStr;
-use syn::{self, parse_quote};
 use syn::parse::{self, Parse};
-use syn::{Ident, LitInt, IntSuffix};
-use syn::Meta::{List, NameValue, Word};
-use syn::Lit::{Int, Float};
-use syn::NestedMeta::{Literal, Meta};
 use syn::spanned::Spanned;
+use syn::Lit::{Float, Int};
+use syn::Meta::{List, NameValue, Word};
+use syn::NestedMeta::{Literal, Meta};
+use syn::{self, parse_quote};
+use syn::{Ident, IntSuffix, LitInt};
 
 pub struct Attr<'c, T> {
     cx: &'c Ctxt,
@@ -33,7 +33,8 @@ impl<'c, T> Attr<'c, T> {
         let tokens = obj.into_token_stream();
 
         if self.value.is_some() {
-            self.cx.error_spanned_by(tokens, format!("duplicate lain attribute `{}`", self.name))
+            self.cx
+                .error_spanned_by(tokens, format!("duplicate lain attribute `{}`", self.name))
         } else {
             self.tokens = tokens;
             self.value = Some(value);
@@ -80,14 +81,20 @@ impl Container {
                         if let Int(ref i) = m.lit {
                             serialized_size.set(&m.ident, i.value() as usize);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to integer expression for {}", SERIALIZED_SIZE));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to integer expression for {}", SERIALIZED_SIZE),
+                            );
                         }
                     }
                     Meta(NameValue(ref m)) if m.ident == MIN_SERIALIZED_SIZE => {
                         if let Int(ref i) = m.lit {
                             min_serialized_size.set(&m.ident, i.value() as usize);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to integer expression for {}", MIN_SERIALIZED_SIZE));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to integer expression for {}", MIN_SERIALIZED_SIZE),
+                            );
                         }
                     }
                     Meta(ref meta_item) => {
@@ -139,7 +146,6 @@ impl ToTokens for WeightTo {
     }
 }
 
-
 pub fn unraw(ident: &Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }
@@ -166,11 +172,11 @@ impl Field {
         let mut bits = Attr::none(cx, BITS);
         let mut bitfield_type = Attr::none(cx, BITFIELD_TYPE);
         let mut min = Attr::none(cx, MIN);
-        let mut max= Attr::none(cx, MAX);
+        let mut max = Attr::none(cx, MAX);
         let mut ignore = BoolAttr::none(cx, IGNORE);
         let mut ignore_chance = Attr::none(cx, IGNORE_CHANCE);
         let mut initializer = Attr::none(cx, INITIALIZER);
-        let mut big_endian= BoolAttr::none(cx, BIG_ENDIAN);
+        let mut big_endian = BoolAttr::none(cx, BIG_ENDIAN);
         let mut little_endian = BoolAttr::none(cx, LITTLE_ENDIAN);
         let mut weight_to = Attr::none(cx, WEIGHT_TO);
 
@@ -194,7 +200,10 @@ impl Field {
                         if let Int(ref i) = m.lit {
                             bits.set(&m.ident, i.value() as usize);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for `{}`", BITS));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to parse integer expression for `{}`", BITS),
+                            );
                         }
                     }
                     // `#[lain(bitfield_type = "u8")]`
@@ -202,13 +211,22 @@ impl Field {
                         if let Ok(expr) = parse_lit_into_type(&cx, BITFIELD_TYPE, &m.lit) {
                             bitfield_type.set(&m.ident, expr)
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse `{}` into a type", BITFIELD_TYPE));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to parse `{}` into a type", BITFIELD_TYPE),
+                            );
                         }
                     }
                     // `#[lain(big_endian)]`
                     Meta(Word(ref word)) if word == BIG_ENDIAN => {
                         if little_endian.get() {
-                            cx.error_spanned_by(word, format!("attribute meta items `{}` and `{}` are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
+                            cx.error_spanned_by(
+                                word,
+                                format!(
+                                    "attribute meta items `{}` and `{}` are mutually exclusive",
+                                    BIG_ENDIAN, LITTLE_ENDIAN
+                                ),
+                            );
                         } else {
                             big_endian.set_true(word);
                         }
@@ -216,7 +234,13 @@ impl Field {
                     // `#[lain(little_endian)]`
                     Meta(Word(ref word)) if word == LITTLE_ENDIAN => {
                         if big_endian.get() {
-                            cx.error_spanned_by(word, format!("attribute meta items `{}` and `{}` are mutually exclusive", BIG_ENDIAN, LITTLE_ENDIAN));
+                            cx.error_spanned_by(
+                                word,
+                                format!(
+                                    "attribute meta items `{}` and `{}` are mutually exclusive",
+                                    BIG_ENDIAN, LITTLE_ENDIAN
+                                ),
+                            );
                         } else {
                             little_endian.set_true(word);
                         }
@@ -232,7 +256,10 @@ impl Field {
                         } else if let Int(ref i) = m.lit {
                             ignore_chance.set(&m.ident, i.value() as f64);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to parse float expression for `{}`", IGNORE_CHANCE),
+                            );
                         }
                     }
                     Meta(NameValue(ref m)) if m.ident == INITIALIZER => {
@@ -240,7 +267,10 @@ impl Field {
                             if let Ok(tokens) = TokenStream::from_str(&s.value()) {
                                 initializer.set(&m.ident, tokens);
                             } else {
-                                cx.error_spanned_by(&m.lit, format!("failed to parse tokens for `{}`", INITIALIZER))
+                                cx.error_spanned_by(
+                                    &m.lit,
+                                    format!("failed to parse tokens for `{}`", INITIALIZER),
+                                )
                             }
                         }
                     }
@@ -250,7 +280,10 @@ impl Field {
                                 "min" => weight_to.set(&m.ident, WeightTo::Min),
                                 "max" => weight_to.set(&m.ident, WeightTo::Max),
                                 "none" => weight_to.set(&m.ident, WeightTo::None),
-                                _ => cx.error_spanned_by(&m.lit, format!("unknown option `{}` for `{}`", WEIGHT_TO, m.ident))
+                                _ => cx.error_spanned_by(
+                                    &m.lit,
+                                    format!("unknown option `{}` for `{}`", WEIGHT_TO, m.ident),
+                                ),
                             }
                         }
                     }
@@ -288,7 +321,7 @@ impl Field {
     }
 
     pub fn is_last_field(&self) -> bool {
-        return self.is_last_field
+        return self.is_last_field;
     }
 
     pub fn bits(&self) -> Option<usize> {
@@ -352,7 +385,7 @@ impl Variant {
     pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
         let mut weight = Attr::none(cx, WEIGHT);
         let mut ignore = BoolAttr::none(cx, IGNORE);
-        let mut ignore_chance =  Attr::none(cx, IGNORE_CHANCE);
+        let mut ignore_chance = Attr::none(cx, IGNORE_CHANCE);
 
         for meta_items in variant.attrs.iter().filter_map(get_lain_meta_items) {
             for meta_item in meta_items {
@@ -362,7 +395,10 @@ impl Variant {
                         if let Int(ref i) = m.lit {
                             weight.set(&m.ident, i.value());
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse integer expression for {}", WEIGHT));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to parse integer expression for {}", WEIGHT),
+                            );
                         }
                     }
                     // `#[lain(ignore)]`
@@ -376,7 +412,10 @@ impl Variant {
                         } else if let Int(ref i) = m.lit {
                             ignore_chance.set(&m.ident, i.value() as f64);
                         } else {
-                            cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
+                            cx.error_spanned_by(
+                                &m.lit,
+                                format!("failed to parse float expression for `{}`", IGNORE_CHANCE),
+                            );
                         }
                     }
                     Meta(ref meta_item) => {
@@ -412,7 +451,6 @@ impl Variant {
     }
 }
 
-
 pub fn get_lain_meta_items(attr: &syn::Attribute) -> Option<Vec<syn::NestedMeta>> {
     if attr.path == LAIN {
         match attr.interpret_meta() {
@@ -427,7 +465,12 @@ pub fn get_lain_meta_items(attr: &syn::Attribute) -> Option<Vec<syn::NestedMeta>
     }
 }
 
-pub fn get_lit_str<'a>(cx: &Ctxt, attr_name: Symbol, meta_item_name: Symbol, lit: &'a syn::Lit) -> Result<&'a syn::LitStr, ()> {
+pub fn get_lit_str<'a>(
+    cx: &Ctxt,
+    attr_name: Symbol,
+    meta_item_name: Symbol,
+    lit: &'a syn::Lit,
+) -> Result<&'a syn::LitStr, ()> {
     if let syn::Lit::Str(ref lit) = *lit {
         Ok(lit)
     } else {
@@ -463,11 +506,7 @@ fn parse_min_max(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<TokenSt
     }
 }
 
-fn parse_lit_into_type(
-    cx: &Ctxt,
-    attr_name: Symbol,
-    lit: &syn::Lit,
-) -> Result<syn::Type, ()> {
+fn parse_lit_into_type(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<syn::Type, ()> {
     let string = get_lit_str(cx, attr_name, attr_name, lit)?;
     parse_lit_str(string).map_err(|_| {
         cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))
@@ -475,7 +514,8 @@ fn parse_lit_into_type(
 }
 
 fn parse_lit_str<T>(s: &syn::LitStr) -> parse::Result<T>
-where T: Parse,
+where
+    T: Parse,
 {
     let tokens = spanned_tokens(s)?;
     syn::parse2(tokens)

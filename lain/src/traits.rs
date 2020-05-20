@@ -27,7 +27,7 @@ pub trait SerializedSize {
 
     /// Maximum size in bytes of this data type with *the minimum amount of elements*. This is useful
     /// for determining the maximum size that a data type with a dynamic-sized member (e.g. Vec or String)
-    /// may be within an enum with struct members. 
+    /// may be within an enum with struct members.
     fn max_default_object_size() -> usize {
         Self::min_nonzero_elements_size()
     }
@@ -54,7 +54,11 @@ pub trait NewFuzzed {
 pub trait Mutatable {
     type RangeType: Debug + Bounded + Default;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>);
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    );
 }
 
 /// Trait used for performing fixups of a data structure when generating a new
@@ -67,7 +71,8 @@ pub trait Fixup {
 }
 
 impl<T> Fixup for T {
-    default fn fixup<R: Rng>(&mut self, _mutator: &mut Mutator<R>) { /* nop */ }
+    default fn fixup<R: Rng>(&mut self, _mutator: &mut Mutator<R>) { /* nop */
+    }
 }
 
 #[doc(hidden)]

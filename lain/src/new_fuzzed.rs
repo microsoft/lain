@@ -10,7 +10,8 @@ use std::mem::MaybeUninit;
 use std::{char, cmp};
 
 impl<T> NewFuzzed for Option<T>
-where T: NewFuzzed
+where
+    T: NewFuzzed,
 {
     type RangeType = T::RangeType;
 
@@ -100,7 +101,11 @@ where
             let element = if let Some(ref max_size) = max_size {
                 T::new_fuzzed(
                     mutator,
-                    Some(&Constraints::new().max_size(max_size - used_size).set_base_size_accounted_for()),
+                    Some(
+                        &Constraints::new()
+                            .max_size(max_size - used_size)
+                            .set_base_size_accounted_for(),
+                    ),
                 )
             } else {
                 T::new_fuzzed(mutator, None)
@@ -170,7 +175,11 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-                    max = cmp::min(max, (max_size + (T::min_nonzero_elements_size() * min)) / T::min_nonzero_elements_size());
+                    max = cmp::min(
+                        max,
+                        (max_size + (T::min_nonzero_elements_size() * min))
+                            / T::min_nonzero_elements_size(),
+                    );
                 }
             }
             None => {
@@ -197,7 +206,11 @@ where
             let element: T = if let Some(ref max_size) = max_size {
                 T::new_fuzzed(
                     mutator,
-                    Some(&Constraints::new().max_size(max_size - used_size).set_base_size_accounted_for()),
+                    Some(
+                        &Constraints::new()
+                            .max_size(max_size - used_size)
+                            .set_base_size_accounted_for(),
+                    ),
                 )
             } else {
                 T::new_fuzzed(mutator, None)
@@ -221,7 +234,11 @@ where
                 let element: T = if let Some(ref max_size) = max_size {
                     T::new_fuzzed(
                         mutator,
-                        Some(&Constraints::new().max_size(max_size - used_size).set_base_size_accounted_for()),
+                        Some(
+                            &Constraints::new()
+                                .max_size(max_size - used_size)
+                                .set_base_size_accounted_for(),
+                        ),
                     )
                 } else {
                     T::new_fuzzed(mutator, None)
@@ -830,7 +847,7 @@ impl_new_fuzzed_array!(
 impl NewFuzzed for *mut std::ffi::c_void {
     type RangeType = usize;
 
-    fn new_fuzzed<R: Rng> (
+    fn new_fuzzed<R: Rng>(
         _mutator: &mut Mutator<R>,
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) -> Self {
@@ -841,7 +858,7 @@ impl NewFuzzed for *mut std::ffi::c_void {
 impl NewFuzzed for *const std::ffi::c_void {
     type RangeType = usize;
 
-    fn new_fuzzed<R: Rng> (
+    fn new_fuzzed<R: Rng>(
         _mutator: &mut Mutator<R>,
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) -> Self {

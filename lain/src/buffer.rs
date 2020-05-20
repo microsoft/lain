@@ -70,9 +70,9 @@ macro_rules! impl_serialized_size_array {
 }
 
 impl_serialized_size_array!(
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
-    27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-    51, 52, 53, 54, 55, 56, 57, 58, 59, 60
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+    50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60
 );
 
 impl<T> SerializedSize for Vec<T>
@@ -181,7 +181,7 @@ impl BinarySerialize for u8 {
 
 impl BinarySerialize for [u8] {
     #[inline(always)]
-    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize{
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         buffer.write(&self).unwrap()
     }
 }
@@ -208,12 +208,8 @@ where
 {
     default fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         match *self {
-            UnsafeEnum::Invalid(ref value) => {
-                value.binary_serialize::<_, E>(buffer)
-            }
-            UnsafeEnum::Valid(ref value) => {
-                value.binary_serialize::<_, E>(buffer)
-            }
+            UnsafeEnum::Invalid(ref value) => value.binary_serialize::<_, E>(buffer),
+            UnsafeEnum::Valid(ref value) => value.binary_serialize::<_, E>(buffer),
         }
     }
 }
@@ -238,11 +234,11 @@ impl BinarySerialize for &str {
 impl BinarySerialize for *const std::ffi::c_void {
     #[inline(always)]
     fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
-        #[cfg(target_pointer_width="64")]
+        #[cfg(target_pointer_width = "64")]
         let numeric_ptr = *self as u64;
-        #[cfg(target_pointer_width="32")]
+        #[cfg(target_pointer_width = "32")]
         let numeric_ptr = *self as u32;
-        #[cfg(not(any(target_pointer_width="32", target_pointer_width="64")))]
+        #[cfg(not(any(target_pointer_width = "32", target_pointer_width = "64")))]
         panic!("unsupported pointer width");
 
         numeric_ptr.binary_serialize::<_, E>(buffer)
@@ -257,7 +253,10 @@ impl BinarySerialize for *mut std::ffi::c_void {
     }
 }
 
-impl<T> BinarySerialize for Option<T> where T: BinarySerialize {
+impl<T> BinarySerialize for Option<T>
+where
+    T: BinarySerialize,
+{
     #[inline(always)]
     fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
         if let Some(ref inner) = self {
@@ -267,7 +266,6 @@ impl<T> BinarySerialize for Option<T> where T: BinarySerialize {
         }
     }
 }
-
 
 macro_rules! impl_binary_serialize {
     ( $($name:ident),* ) => {
@@ -319,7 +317,8 @@ macro_rules! impl_serialized_size {
 impl_serialized_size!(i64, u64, i32, u32, i16, u16, f32, f64, u8, i8, bool);
 
 impl<T, U> SerializedSize for T
-where T: ToPrimitive<Output=U>
+where
+    T: ToPrimitive<Output = U>,
 {
     #[inline]
     default fn serialized_size(&self) -> usize {
@@ -392,7 +391,10 @@ impl SerializedSize for *mut std::ffi::c_void {
     }
 }
 
-impl<T> SerializedSize for Option<T> where T: SerializedSize {
+impl<T> SerializedSize for Option<T>
+where
+    T: SerializedSize,
+{
     #[inline]
     fn serialized_size(&self) -> usize {
         if let Some(ref inner) = self {

@@ -213,7 +213,8 @@ where
                     None
                 } else {
                     let mut new_constraints = Constraints::new();
-                    new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
+                    new_constraints.base_object_size_accounted_for =
+                        c.base_object_size_accounted_for;
                     new_constraints.max_size = new_constraints.max_size;
 
                     Some(new_constraints)
@@ -237,7 +238,7 @@ where
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         const CHANCE_TO_RESIZE_VEC: f64 = 0.01;
-        
+
         if T::min_nonzero_elements_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return;
@@ -257,7 +258,8 @@ where
                     None
                 } else {
                     let mut new_constraints = Constraints::new();
-                    new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
+                    new_constraints.base_object_size_accounted_for =
+                        c.base_object_size_accounted_for;
                     new_constraints.max_size = new_constraints.max_size;
 
                     Some(new_constraints)
@@ -275,7 +277,11 @@ where
 {
     type RangeType = T::RangeType;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         for item in self.iter_mut() {
             T::mutate(item, mutator, constraints);
         }
@@ -285,7 +291,11 @@ where
 impl Mutatable for bool {
     type RangeType = u8;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         *self = mutator.gen_range(0u8, 2u8) != 0;
     }
 }
@@ -306,7 +316,11 @@ where
 {
     type RangeType = I;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         if let UnsafeEnum::Valid(ref value) = *self {
             *self = UnsafeEnum::Invalid(value.to_primitive());
         }
@@ -323,7 +337,11 @@ where
 impl Mutatable for AsciiString {
     type RangeType = u8;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         trace!("performing mutation on an AsciiString");
 
         // TODO: Implement logic for resizing?
@@ -337,7 +355,11 @@ impl Mutatable for AsciiString {
 impl Mutatable for Utf8String {
     type RangeType = u8;
 
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         trace!("performing mutation on a Utf8String");
 
         // TODO: Implement logic for resizing?
@@ -369,7 +391,11 @@ impl Mutatable for i8 {
     type RangeType = i8;
 
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         let mut val = *self as u8;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i8;
@@ -380,7 +406,11 @@ impl Mutatable for i16 {
     type RangeType = i16;
 
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         let mut val = *self as u16;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i16;
@@ -391,7 +421,11 @@ impl Mutatable for i32 {
     type RangeType = i32;
 
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         let mut val = *self as u32;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i32;
@@ -402,7 +436,11 @@ impl Mutatable for i64 {
     type RangeType = i64;
 
     #[inline(always)]
-    fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        _constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
         let mut val = *self as u64;
         mutator.mutate_from_mutation_mode(&mut val);
         *self = val as i64;
@@ -448,7 +486,10 @@ impl Mutatable for *mut std::ffi::c_void {
     }
 }
 
-impl<T> Mutatable for Option<T> where T: Mutatable + NewFuzzed {
+impl<T> Mutatable for Option<T>
+where
+    T: Mutatable + NewFuzzed,
+{
     type RangeType = <T as Mutatable>::RangeType;
 
     fn mutate<R: Rng>(

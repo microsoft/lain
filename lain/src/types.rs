@@ -58,7 +58,7 @@ where
 
 impl<E, T> crate::traits::ToPrimitive for UnsafeEnum<E, T>
 where
-    E: crate::traits::ToPrimitive<Output=T>,
+    E: crate::traits::ToPrimitive<Output = T>,
     T: Copy,
 {
     type Output = T;
@@ -118,7 +118,7 @@ pub struct Constraints<T: Bounded + Debug> {
     pub max: Option<T>,
     /// Which direction to weigh the RNG towards
     pub weighted: Weighted,
-    /// The space allotted for dynamically-sized objects 
+    /// The space allotted for dynamically-sized objects
     pub max_size: Option<usize>,
     pub base_object_size_accounted_for: bool,
 }
@@ -154,7 +154,9 @@ impl<T: Bounded + Debug> Constraints<T> {
         self
     }
 
-    pub fn account_for_base_object_size<'a, U: crate::traits::SerializedSize>(&'a mut self) -> &'a mut Constraints<T> {
+    pub fn account_for_base_object_size<'a, U: crate::traits::SerializedSize>(
+        &'a mut self,
+    ) -> &'a mut Constraints<T> {
         if !self.base_object_size_accounted_for {
             if let Some(ref mut max_size) = self.max_size {
                 if U::min_nonzero_elements_size() > *max_size {
@@ -162,7 +164,7 @@ impl<T: Bounded + Debug> Constraints<T> {
                 }
 
                 *max_size -= U::min_nonzero_elements_size();
-            } 
+            }
 
             self.base_object_size_accounted_for = true;
         }

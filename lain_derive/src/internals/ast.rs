@@ -1,6 +1,6 @@
 use super::attr;
-use super::Derive;
 use super::Ctxt;
+use super::Derive;
 use syn::punctuated::Punctuated;
 use syn::Token;
 
@@ -19,7 +19,7 @@ pub struct Container<'a> {
 }
 
 /// The fields of a struct or enum
-/// 
+///
 /// Analagous to [`syn::Data`].
 pub enum Data<'a> {
     Enum(Vec<Variant<'a>>),
@@ -63,9 +63,7 @@ impl<'a> Container<'a> {
         let attrs = attr::Container::from_ast(cx, item);
 
         let data = match item.data {
-            syn::Data::Enum(ref data) => {
-                Data::Enum(enum_from_ast(cx, &data.variants))
-            }
+            syn::Data::Enum(ref data) => Data::Enum(enum_from_ast(cx, &data.variants)),
             syn::Data::Struct(ref data) => {
                 let (style, fields) = struct_from_ast(cx, &data.fields);
                 Data::Struct(style, fields)
@@ -92,41 +90,32 @@ fn enum_from_ast<'a>(
     cx: &Ctxt,
     variants: &'a Punctuated<syn::Variant, Token![,]>,
 ) -> Vec<Variant<'a>> {
-    variants.iter().map(|variant| {
-        let attrs = attr::Variant::from_ast(cx, variant);
-        let (style, fields) = struct_from_ast(cx, &variant.fields);
+    variants
+        .iter()
+        .map(|variant| {
+            let attrs = attr::Variant::from_ast(cx, variant);
+            let (style, fields) = struct_from_ast(cx, &variant.fields);
 
-        Variant {
-            ident: variant.ident.clone(),
-            attrs,
-            style,
-            fields,
-            original: variant,
-        }
-    }).collect()
+            Variant {
+                ident: variant.ident.clone(),
+                attrs,
+                style,
+                fields,
+                original: variant,
+            }
+        })
+        .collect()
 }
 
-fn struct_from_ast<'a>(
-    cx: &Ctxt,
-    fields: &'a syn::Fields,
-) -> (Style, Vec<Field<'a>>) {
+fn struct_from_ast<'a>(cx: &Ctxt, fields: &'a syn::Fields) -> (Style, Vec<Field<'a>>) {
     match *fields {
-        syn::Fields::Named(ref fields) => (
-            Style::Struct,
-            fields_from_ast(cx, &fields.named)
-        ),
-        syn::Fields::Unnamed(ref fields) => (
-            Style::Tuple,
-            fields_from_ast(cx, &fields.unnamed)
-        ),
+        syn::Fields::Named(ref fields) => (Style::Struct, fields_from_ast(cx, &fields.named)),
+        syn::Fields::Unnamed(ref fields) => (Style::Tuple, fields_from_ast(cx, &fields.unnamed)),
         syn::Fields::Unit => (Style::Unit, Vec::new()),
     }
 }
 
-fn fields_from_ast<'a>(
-    cx: &Ctxt,
-    fields: &'a Punctuated<syn::Field, Token![,]>,
-) -> Vec<Field<'a>> {
+fn fields_from_ast<'a>(cx: &Ctxt, fields: &'a Punctuated<syn::Field, Token![,]>) -> Vec<Field<'a>> {
     let mut bitfield_bits = 0;
 
     let mut fields: Vec<Field<'a>> = fields

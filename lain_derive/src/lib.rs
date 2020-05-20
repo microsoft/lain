@@ -13,10 +13,10 @@ use proc_macro2::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 //mod fuzzerobject;
+mod dummy;
+mod internals;
 mod mutations;
 mod serialize;
-mod internals;
-mod dummy;
 
 //use crate::fuzzerobject::*;
 //use crate::serialize::binary_serialize_helper;
@@ -47,7 +47,9 @@ fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
 #[proc_macro_derive(NewFuzzed, attributes(lain))]
 pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    mutations::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into()
+    mutations::expand_new_fuzzed(&input)
+        .unwrap_or_else(to_compile_errors)
+        .into()
 }
 
 /// Implements [lain::traits::BinarySerialize] on the given struct/enum.
@@ -95,13 +97,12 @@ pub fn new_fuzzed(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///    // 0000: AA BB CC DD 33 22 11 00
 ///}
 /// ```
-#[proc_macro_derive(
-    BinarySerialize,
-    attributes(lain)
-)]
+#[proc_macro_derive(BinarySerialize, attributes(lain))]
 pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    serialize::expand_binary_serialize(&input).unwrap_or_else(to_compile_errors).into()
+    serialize::expand_binary_serialize(&input)
+        .unwrap_or_else(to_compile_errors)
+        .into()
 }
 
 /// Automatically implements [trait@lain::traits::Mutatable] with basic
@@ -146,7 +147,9 @@ pub fn binary_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 #[proc_macro_derive(Mutatable, attributes(lain))]
 pub fn mutatable_helper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    mutations::expand_mutatable(&input).unwrap_or_else(to_compile_errors).into()
+    mutations::expand_mutatable(&input)
+        .unwrap_or_else(to_compile_errors)
+        .into()
 }
 
 /// Automatically implements [trait@lain::traits::VariableSizeObject]
@@ -249,8 +252,16 @@ pub fn fuzzer_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let mut base_token_stream = TokenStream::new();
 
     let input = parse_macro_input!(input as DeriveInput);
-    base_token_stream.extend::<TokenStream>(mutations::expand_new_fuzzed(&input).unwrap_or_else(to_compile_errors).into());
-    base_token_stream.extend::<TokenStream>(mutations::expand_mutatable(&input).unwrap_or_else(to_compile_errors).into());
+    base_token_stream.extend::<TokenStream>(
+        mutations::expand_new_fuzzed(&input)
+            .unwrap_or_else(to_compile_errors)
+            .into(),
+    );
+    base_token_stream.extend::<TokenStream>(
+        mutations::expand_mutatable(&input)
+            .unwrap_or_else(to_compile_errors)
+            .into(),
+    );
     base_token_stream.extend::<TokenStream>(variable_size_object_helper(&input));
 
     base_token_stream.into()
