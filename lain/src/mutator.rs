@@ -15,10 +15,10 @@ use std::ops::{Add, BitXor, Div, Mul, Sub};
 use serde::{Deserialize, Serialize};
 
 // set these to 0 to disable
-pub const CHANCE_TO_REPEAT_ARRAY_VALUE: f32 = 1.0;
-pub const CHANCE_TO_PICK_INVALID_ENUM: f32 = 1.0;
-pub const CHANCE_TO_IGNORE_MIN_MAX: f32 = 1.0;
-pub const CHANCE_TO_IGNORE_POST_MUTATION: f32 = 0.5;
+pub const CHANCE_TO_REPEAT_ARRAY_VALUE: f64 = 0.01;
+pub const CHANCE_TO_PICK_INVALID_ENUM: f64 = 0.01;
+pub const CHANCE_TO_IGNORE_MIN_MAX: f64 = 0.01;
+pub const CHANCE_TO_IGNORE_POST_MUTATION: f64 = 0.05;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, NewFuzzed)]
@@ -442,7 +442,7 @@ impl<R: Rng> Mutator<R> {
 
     /// Generates the chance to mutate a field. This will always return `true` if the current mode is
     /// [MutatorMode::Havoc].
-    pub fn gen_chance_to_mutate_field(&mut self, chance_percentage: f32) -> bool {
+    pub fn gen_chance_to_mutate_field(&mut self, chance_percentage: f64) -> bool {
         self.mode() != MutatorMode::Havoc || !self.gen_chance(chance_percentage)
     }
 
@@ -455,7 +455,7 @@ impl<R: Rng> Mutator<R> {
     }
 
     /// Returns a boolean value indicating whether or not the chance event occurred
-    pub fn gen_chance(&mut self, chance_percentage: f32) -> bool {
+    pub fn gen_chance(&mut self, chance_percentage: f64) -> bool {
         if chance_percentage <= 0.0 {
             return false;
         }
@@ -474,18 +474,8 @@ impl<R: Rng> Mutator<R> {
     }
 
     /// Different implementation of gen_chance that ignores the current flags
-    fn gen_chance_ignore_flags(&mut self, chance_percentage: f32) -> bool {
-        let num = self.gen_range(0.0, 100.0);
-        let result = num <= chance_percentage;
-
-        trace!(
-            "generating {}% chance. got {}, so returning {}",
-            chance_percentage,
-            num,
-            result
-        );
-
-        result
+    fn gen_chance_ignore_flags(&mut self, chance_percentage: f64) -> bool {
+        self.rng.gen_bool(chance_percentage)
     }
 
     /// Returns a boolean indicating whether or not post mutation steps should be taken

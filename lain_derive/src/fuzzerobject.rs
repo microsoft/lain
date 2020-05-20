@@ -73,7 +73,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
         Data::Enum(ref data) => {
             let enum_ident = ident.to_string();
 
-            let mut enum_has_simple_variants = false;
+            let mut enum_has_non_unit_variants = false;
             let mut mutate_match_arms: Vec<TokenStream> = Vec::new();
             for variant in &data.variants {
                 let variant_ident = TokenStream::from_str(&format!(
@@ -90,8 +90,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
 
                         for (i, ref unnamed) in fields.unnamed.iter().enumerate() {
                             let field_ty = &unnamed.ty;
-                            let ident =
-                                TokenStream::from_str(&format!("field_{}", i)).unwrap();
+                            let ident = TokenStream::from_str(&format!("field_{}", i)).unwrap();
 
                             mutate_call.extend(quote_spanned! { unnamed.span() =>
                                 let constraints = max_size.and_then(|max|{
@@ -120,8 +119,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
                                 }
                             });
 
-                            parameters
-                                .extend(quote_spanned! {unnamed.span() => ref mut #ident,});
+                            parameters.extend(quote_spanned! {unnamed.span() => ref mut #ident,});
                         }
 
                         mutate_match_arms.push(quote! {
@@ -129,16 +127,16 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
                                 #mutate_call
                             },
                         });
+                        enum_has_non_unit_variants = true;
                     }
                     syn::Fields::Unit => {
-                        enum_has_simple_variants = true;
                         break;
                     }
                     _ => panic!("unsupported enum variant type"),
                 }
             }
 
-            mutate_body = if enum_has_simple_variants {
+            mutate_body = if !enum_has_non_unit_variants {
                 // TODO: This will keep any #[fuzzer(ignore)] or #[weight(N)] attributes...
                 // which we probably don't want.
                 quote_spanned! { ident.span() =>

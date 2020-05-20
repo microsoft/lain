@@ -1,11 +1,11 @@
 use proc_macro2::{Span, TokenStream};
+use quote::{quote, quote_spanned, ToTokens};
 use std::str::FromStr;
 use syn::spanned::Spanned;
-use quote::{quote, quote_spanned, ToTokens};
 
-use crate::internals::{Ctxt, Derive, attr};
-use crate::internals::ast::{Container, Data, Field, Variant, Style};
 use crate::dummy;
+use crate::internals::ast::{Container, Data, Field, Style, Variant};
+use crate::internals::{attr, Ctxt, Derive};
 
 pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn::Error>> {
     let ctx = Ctxt::new();
@@ -83,17 +83,18 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
 
 fn mutatable_body(cont: &Container) -> TokenStream {
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => mutatable_enum(variants, &cont.ident),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => {
+            mutatable_enum(variants, &cont.ident)
+        }
         Data::Enum(ref variants) => mutatable_unit_enum(variants, &cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => mutatable_struct(fields),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => {
+            mutatable_struct(fields)
+        }
         Data::Struct(Style::Unit, ref _fields) => TokenStream::new(),
     }
 }
 
-fn mutatable_enum (
-    variants: &[Variant],
-    cont_ident: &syn::Ident,
-) ->  TokenStream {
+fn mutatable_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
     let constraints_prelude = constraints_prelude();
     let match_arms = mutatable_enum_visitor(variants, cont_ident);
 
@@ -106,7 +107,7 @@ fn mutatable_enum (
             *self = Self::new_fuzzed(mutator, parent_constraints);
             return;
         }
-        
+
         #constraints_prelude
 
         match *self {
@@ -142,9 +143,7 @@ fn mutatable_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenSt
     }
 }
 
-fn mutatable_struct (
-    fields: &[Field],
-) -> TokenStream {
+fn mutatable_struct(fields: &[Field]) -> TokenStream {
     let mutators = mutatable_struct_visitor(fields);
     let prelude = constraints_prelude();
 
@@ -169,24 +168,23 @@ fn mutatable_unit_enum_visitor(
 ) -> (Vec<u64>, Vec<TokenStream>) {
     let mut weights = vec![];
 
-    let variants = variants.iter().filter_map(|variant| {
-        if variant.attrs.ignore() {
-            None
-        } else {
-            let variant_ident = &variant.ident;
-            weights.push(variant.attrs.weight().unwrap_or(1));
-            Some(quote!{#cont_ident::#variant_ident})
-        }
-    })
-    .collect();
+    let variants = variants
+        .iter()
+        .filter_map(|variant| {
+            if variant.attrs.ignore() {
+                None
+            } else {
+                let variant_ident = &variant.ident;
+                weights.push(variant.attrs.weight().unwrap_or(1));
+                Some(quote! {#cont_ident::#variant_ident})
+            }
+        })
+        .collect();
 
     (weights, variants)
 }
 
-fn mutatable_enum_visitor(
-    variants: &[Variant],
-    cont_ident: &syn::Ident,
-) -> Vec<TokenStream> {
+fn mutatable_enum_visitor(variants: &[Variant], cont_ident: &syn::Ident) -> Vec<TokenStream> {
     let match_arms = variants
         .iter()
         .filter_map(|variant| {
@@ -195,16 +193,20 @@ fn mutatable_enum_visitor(
             }
 
             let variant_ident = &variant.ident;
-            let full_ident = quote!{#cont_ident::#variant_ident};
+            let full_ident = quote! {#cont_ident::#variant_ident};
             let mut field_identifiers = vec![];
 
-            let field_mutators: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, _field_ident_string, initializer) = field_mutator(field, "__field", true);
-                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
+            let field_mutators: Vec<TokenStream> = variant
+                .fields
+                .iter()
+                .map(|field| {
+                    let (value_ident, _field_ident_string, initializer) =
+                        field_mutator(field, "__field", true);
+                    field_identifiers.push(quote_spanned! { field.member.span() => #value_ident });
 
-                initializer
-            })
-            .collect();
+                    initializer
+                })
+                .collect();
 
             let match_arm = quote! {
                 #full_ident(#(ref mut #field_identifiers,)*) => {
@@ -219,13 +221,12 @@ fn mutatable_enum_visitor(
     match_arms
 }
 
-fn mutatable_struct_visitor(
-    fields: &[Field],
-) -> Vec<TokenStream> {
+fn mutatable_struct_visitor(fields: &[Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let (_field_ident, _field_ident_string, initializer) = field_mutator(field, "self.", false);
+            let (_field_ident, _field_ident_string, initializer) =
+                field_mutator(field, "self.", false);
 
             quote! {
                 #initializer
@@ -236,23 +237,25 @@ fn mutatable_struct_visitor(
 
 fn new_fuzzed_body(cont: &Container) -> TokenStream {
     match cont.data {
-        Data::Enum(ref variants) if variants[0].style != Style::Unit => new_fuzzed_enum(variants, &cont.ident),
+        Data::Enum(ref variants) if variants[0].style != Style::Unit => {
+            new_fuzzed_enum(variants, &cont.ident)
+        }
         Data::Enum(ref variants) => new_fuzzed_unit_enum(variants, &cont.ident),
-        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => new_fuzzed_struct(fields, &cont.ident),
+        Data::Struct(Style::Struct, ref fields) | Data::Struct(Style::Tuple, ref fields) => {
+            new_fuzzed_struct(fields, &cont.ident)
+        }
         Data::Struct(Style::Unit, ref _fields) => new_fuzzed_unit_struct(&cont.ident),
     }
 }
 
-fn new_fuzzed_enum (
-    variants: &[Variant],
-    cont_ident: &syn::Ident,
-) ->  TokenStream {
+fn new_fuzzed_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
     let constraints_prelude = constraints_prelude();
-    let (weights, new_fuzzed_fields, ignore_chances) = new_fuzzed_enum_visitor(variants, cont_ident);
+    let (weights, new_fuzzed_fields, ignore_chances) =
+        new_fuzzed_enum_visitor(variants, cont_ident);
     let variant_count = new_fuzzed_fields.len();
 
     if new_fuzzed_fields.is_empty() {
-        return quote!{Default::default()};
+        return quote! {Default::default()};
     }
 
     let mut match_arms = vec![];
@@ -276,7 +279,7 @@ fn new_fuzzed_enum (
         use _lain::rand::distributions::Distribution;
 
         static weights: [u64; #variant_count] = [#(#weights,)*];
-        static ignore_chances: [f32; #variant_count] = [#(#ignore_chances,)*];
+        static ignore_chances: [f64; #variant_count] = [#(#ignore_chances,)*];
 
         _lain::lazy_static::lazy_static! {
             static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
@@ -294,7 +297,7 @@ fn new_fuzzed_enum (
             let chance = ignore_chances[idx.unwrap()];
 
             // negate the gen_chance call since this is a chance to *ignore*
-            if chance >= 100.0 || !mutator.gen_chance(chance) {
+            if chance >= 1.0 || !mutator.gen_chance(chance) {
                 break;
             }
         }
@@ -309,10 +312,11 @@ fn new_fuzzed_enum (
 }
 
 fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
-    let (weights, variant_tokens, ignore_chances) = new_fuzzed_unit_enum_visitor(variants, cont_ident);
+    let (weights, variant_tokens, ignore_chances) =
+        new_fuzzed_unit_enum_visitor(variants, cont_ident);
 
     if variant_tokens.is_empty() {
-        return quote!{Default::default()};
+        return quote! {Default::default()};
     }
 
     let variant_count = variant_tokens.len();
@@ -322,7 +326,7 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenS
         use _lain::rand::distributions::Distribution;
 
         static options: [#cont_ident; #variant_count] = [#(#variant_tokens,)*];
-        static ignore_chances: [f32; #variant_count] = [#(#ignore_chances,)*];
+        static ignore_chances: [f64; #variant_count] = [#(#ignore_chances,)*];
         static weights: [u64; #variant_count] = [#(#weights,)*];
 
         _lain::lazy_static::lazy_static! {
@@ -350,10 +354,7 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenS
     }
 }
 
-fn new_fuzzed_struct (
-    fields: &[Field],
-    cont_ident: &syn::Ident,
-) -> TokenStream {
+fn new_fuzzed_struct(fields: &[Field], cont_ident: &syn::Ident) -> TokenStream {
     let initializers = new_fuzzed_struct_visitor(fields, cont_ident);
     let prelude = constraints_prelude();
 
@@ -399,18 +400,13 @@ fn new_fuzzed_struct (
     }
 }
 
-fn new_fuzzed_unit_struct (
-    cont_ident: &syn::Ident,
-) -> TokenStream {
+fn new_fuzzed_unit_struct(cont_ident: &syn::Ident) -> TokenStream {
     quote! {
         #cont_ident
     }
 }
 
-fn new_fuzzed_struct_visitor(
-    fields: &[Field],
-    cont_ident: &syn::Ident,
-) -> Vec<TokenStream> {
+fn new_fuzzed_struct_visitor(fields: &[Field], cont_ident: &syn::Ident) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
@@ -437,7 +433,7 @@ fn struct_field_constraints(field: &Field, for_mutation: bool) -> TokenStream {
     let attrs = &field.attrs;
     if !for_mutation {
         if attrs.ignore() || (attrs.initializer().is_some() && !attrs.ignore_chance().is_some()) {
-            return TokenStream::new(); 
+            return TokenStream::new();
         }
     }
 
@@ -447,9 +443,13 @@ fn struct_field_constraints(field: &Field, for_mutation: bool) -> TokenStream {
 
         if let Some(bits) = attrs.bits() {
             // TODO: maybe refactor attributes so that they can retain original span
-            let bitfield_max = syn::LitInt::new(2_u64.pow(bits as u32), syn::IntSuffix::None, Span::call_site()); 
-            max = quote!{Some(#bitfield_max)};
-            min = quote!{Some(0)};
+            let bitfield_max = syn::LitInt::new(
+                2_u64.pow(bits as u32),
+                syn::IntSuffix::None,
+                Span::call_site(),
+            );
+            max = quote! {Some(#bitfield_max)};
+            min = quote! {Some(0)};
         } else {
             min = option_to_tokens(attrs.min());
             max = option_to_tokens(attrs.max());
@@ -478,18 +478,25 @@ fn struct_field_constraints(field: &Field, for_mutation: bool) -> TokenStream {
 }
 
 fn option_to_tokens<T: ToTokens + Spanned>(opt: Option<&T>) -> TokenStream {
-    opt.map_or_else(|| quote!{None}, |o| quote_spanned!{opt.span() => Some(#o)})
+    opt.map_or_else(
+        || quote! {None},
+        |o| quote_spanned! {opt.span() => Some(#o)},
+    )
 }
 
-fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, String, TokenStream) {
+fn field_initializer(
+    field: &Field,
+    name_prefix: &'static str,
+) -> (TokenStream, String, TokenStream) {
     let default_constraints = struct_field_constraints(field, false);
     let ty = &field.ty;
-    let field_ident_string = match field.member{
+    let field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
+    let value_ident =
+        TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
 
     let default_initializer = quote! {
         <#ty>::new_fuzzed(mutator, constraints.as_ref())
@@ -520,7 +527,7 @@ fn field_initializer(field: &Field, name_prefix: &'static str) -> (TokenStream, 
 
     let inc_max_size = decrement_max_size(&field, &value_ident);
     let initializer = quote! {
-        #default_constraints 
+        #default_constraints
 
         #initializer
 
@@ -540,7 +547,7 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
     let zero_tokens = TokenStream::from_str("0").unwrap();
     let field_min_items = field.attrs.min().unwrap_or(&zero_tokens);
     let field_max_items = field.attrs.min().unwrap_or(&zero_tokens);
-    let ty_size = quote!{
+    let ty_size = quote! {
         ((<#ty>::min_nonzero_elements_size() * #field_min_items) as isize)
     };
 
@@ -559,19 +566,24 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
     }
 }
 
-fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool) -> (TokenStream, String, TokenStream) {
+fn field_mutator(
+    field: &Field,
+    name_prefix: &'static str,
+    is_destructured: bool,
+) -> (TokenStream, String, TokenStream) {
     let default_constraints = struct_field_constraints(field, true);
     let ty = &field.ty;
-    let field_ident_string = match field.member{
+    let field_ident_string = match field.member {
         syn::Member::Named(ref ident) => ident.to_string(),
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let value_ident = TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
+    let value_ident =
+        TokenStream::from_str(&format!("{}{}", name_prefix, field_ident_string)).unwrap();
     let borrow = if is_destructured {
         TokenStream::new()
     } else {
-        quote!{&mut}
+        quote! {&mut}
     };
 
     let mutator_stmts = quote! {
@@ -589,7 +601,7 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
     let inc_max_size = decrement_max_size(&field, &value_ident);
 
     let initializer = quote! {
-        #default_constraints 
+        #default_constraints
 
         #mutator_stmts
 
@@ -602,23 +614,25 @@ fn field_mutator(field: &Field, name_prefix: &'static str, is_destructured: bool
 fn new_fuzzed_unit_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<TokenStream>, Vec<f32>) {
+) -> (Vec<u64>, Vec<TokenStream>, Vec<f64>) {
     let mut weights = vec![];
     let mut ignore_chances = vec![];
 
-    let variants = variants.iter().filter_map(|variant| {
-        if variant.attrs.ignore() {
-            None
-        } else {
-            let variant_ident = &variant.ident;
+    let variants = variants
+        .iter()
+        .filter_map(|variant| {
+            if variant.attrs.ignore() {
+                None
+            } else {
+                let variant_ident = &variant.ident;
 
-            weights.push(variant.attrs.weight().unwrap_or(1));
-            ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+                weights.push(variant.attrs.weight().unwrap_or(1));
+                ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
 
-            Some(quote!{#cont_ident::#variant_ident})
-        }
-    })
-    .collect();
+                Some(quote! {#cont_ident::#variant_ident})
+            }
+        })
+        .collect();
 
     (weights, variants, ignore_chances)
 }
@@ -626,7 +640,7 @@ fn new_fuzzed_unit_enum_visitor(
 fn new_fuzzed_enum_visitor(
     variants: &[Variant],
     cont_ident: &syn::Ident,
-) -> (Vec<u64>, Vec<TokenStream>, Vec<f32>) {
+) -> (Vec<u64>, Vec<TokenStream>, Vec<f64>) {
     let mut weights = vec![];
     let mut ignore_chances = vec![];
 
@@ -636,25 +650,42 @@ fn new_fuzzed_enum_visitor(
             if variant.attrs.ignore() {
                 return None;
             }
+            ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
 
             let variant_ident = &variant.ident;
-            let full_ident = quote!{#cont_ident::#variant_ident};
+            let full_ident = quote! {#cont_ident::#variant_ident};
             let mut field_identifiers = vec![];
 
-            let field_initializers: Vec<TokenStream> = variant.fields.iter().map(|field| {
-                let (value_ident, _field_ident_string, initializer) = field_initializer(field, "__field");
+            // TODO: Add ignoring inner fields
+            let mut field_ignore_chances = vec![];
 
-                field_identifiers.push(quote_spanned!{ field.member.span() => #value_ident });
-                ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+            let field_initializers: Vec<TokenStream> = variant
+                .fields
+                .iter()
+                .map(|field| {
+                    let (value_ident, _field_ident_string, initializer) =
+                        field_initializer(field, "__field");
 
-                initializer
-            })
-            .collect();
+                    field_identifiers.push(quote_spanned! { field.member.span() => #value_ident });
+                    field_ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
 
-            let initializer = quote! {
-                #(#field_initializers)*
+                    initializer
+                })
+                .collect();
 
-                let mut value = #full_ident(#(#field_identifiers,)*);
+            // using the same code for both code paths generates an error
+            // when mixing enum variants with and without fields because
+            // of the function call syntax
+            let initializer = if field_initializers.is_empty() {
+                quote! {
+                    let mut value = #full_ident;
+                }
+            } else {
+                quote! {
+                    #(#field_initializers)*
+
+                    let mut value = #full_ident(#(#field_identifiers,)*);
+                }
             };
 
             weights.push(variant.attrs.weight().unwrap_or(1));

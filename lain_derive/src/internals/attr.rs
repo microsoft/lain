@@ -152,7 +152,7 @@ pub struct Field {
     min: Option<TokenStream>,
     max: Option<TokenStream>,
     ignore: bool,
-    ignore_chance: Option<f32>,
+    ignore_chance: Option<f64>,
     initializer: Option<TokenStream>,
     little_endian: bool,
     big_endian: bool,
@@ -228,9 +228,9 @@ impl Field {
                     // `#[lain(ignore_chance = 99.0)]`
                     Meta(NameValue(ref m)) if m.ident == IGNORE_CHANCE => {
                         if let Float(ref f) = m.lit {
-                            ignore_chance.set(&m.ident, f.value() as f32);
+                            ignore_chance.set(&m.ident, f.value() as f64);
                         } else if let Int(ref i) = m.lit {
-                            ignore_chance.set(&m.ident, i.value() as f32);
+                            ignore_chance.set(&m.ident, i.value() as f64);
                         } else {
                             cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
                         }
@@ -319,7 +319,7 @@ impl Field {
         self.ignore
     }
 
-    pub fn ignore_chance(&self) -> Option<f32> {
+    pub fn ignore_chance(&self) -> Option<f64> {
         self.ignore_chance.clone()
     }
 
@@ -344,7 +344,7 @@ impl Field {
 pub struct Variant {
     weight: Option<u64>,
     ignore: bool,
-    ignore_chance: Option<f32>,
+    ignore_chance: Option<f64>,
 }
 
 impl Variant {
@@ -372,9 +372,9 @@ impl Variant {
                     // `#[lain(ignore_chance = 99.0)]`
                     Meta(NameValue(ref m)) if m.ident == IGNORE_CHANCE => {
                         if let Float(ref f) = m.lit {
-                            ignore_chance.set(&m.ident, f.value() as f32);
+                            ignore_chance.set(&m.ident, f.value() as f64);
                         } else if let Int(ref i) = m.lit {
-                            ignore_chance.set(&m.ident, i.value() as f32);
+                            ignore_chance.set(&m.ident, i.value() as f64);
                         } else {
                             cx.error_spanned_by(&m.lit, format!("failed to parse float expression for `{}`", IGNORE_CHANCE));
                         }
@@ -407,7 +407,7 @@ impl Variant {
         self.ignore
     }
 
-    pub fn ignore_chance(&self) -> Option<f32> {
+    pub fn ignore_chance(&self) -> Option<f64> {
         self.ignore_chance
     }
 }

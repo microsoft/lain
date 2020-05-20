@@ -18,7 +18,7 @@ where T: NewFuzzed
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) -> Option<T> {
-        if mutator.gen_chance(75.0) {
+        if mutator.gen_chance(0.75) {
             Some(T::new_fuzzed(mutator, constraints))
         } else {
             None
@@ -677,14 +677,14 @@ macro_rules! impl_new_fuzzed {
                             weight = constraints.weighted;
 
                             // these conditions being met should be rare, so bump the chance to 75%
-                            if ignore_min && ignore_max && mutator.gen_chance(75.0) {
+                            if ignore_min && ignore_max && mutator.gen_chance(0.75) {
                                 return $name::select_dangerous_number(&mut mutator.rng);
                             }
 
                             return mutator.gen_weighted_range(min, max, weight);
                         }
                         None => {
-                            if mutator.gen_chance(25.0) {
+                            if mutator.gen_chance(0.25) {
                                 return $name::select_dangerous_number(&mut mutator.rng);
                             }
 

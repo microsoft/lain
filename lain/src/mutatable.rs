@@ -201,8 +201,10 @@ where
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
+        const CHANCE_TO_RESIZE_VEC: f64 = 0.01;
+
         // 1% chance to resize this vec
-        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(1.0) {
+        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             shrink_vec(self, mutator);
         } else {
             // Recreate the constraints so that the min/max types match
@@ -234,13 +236,14 @@ where
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
+        const CHANCE_TO_RESIZE_VEC: f64 = 0.01;
+        
         if T::min_nonzero_elements_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return;
         }
 
-        // 1% chance to resize this vec
-        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(1.0) {
+        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
             if resize_type == VecResizeType::Grow {
                 grow_vec(self, mutator, constraints.and_then(|c| c.max_size));
@@ -453,17 +456,18 @@ impl<T> Mutatable for Option<T> where T: Mutatable + NewFuzzed {
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
+        const CHANCE_TO_FLIP_OPTION_STATE: f64 = 0.01;
         match self {
             Some(inner) => {
                 // small chance to make this None
-                if mutator.gen_chance(1.0) {
+                if mutator.gen_chance(CHANCE_TO_FLIP_OPTION_STATE) {
                     *self = None;
                 } else {
                     inner.mutate(mutator, constraints);
                 }
             }
             None => {
-                if mutator.gen_chance(1.0) {
+                if mutator.gen_chance(CHANCE_TO_FLIP_OPTION_STATE) {
                     // hack to avoid converting between constraints types even though
                     // they should be the same...
                     let mut new_item = T::new_fuzzed(mutator, None);

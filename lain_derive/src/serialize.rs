@@ -299,6 +299,15 @@ fn binary_serialize_enum_visitor(
             let full_ident = quote! {#cont_ident::#variant_ident};
             let mut field_identifiers = vec![];
 
+            // TODO BUGBUG: need to decouple BinarySerialize from NewFuzzed to not hit this case with mixed unit/struct enum
+            if variant.fields.is_empty() {
+                return quote_spanned! { variant.original.span() =>
+                    #full_ident => {
+                        // do nothing for #full_ident
+                    }
+                };
+            }
+
             let field_serializers: Vec<TokenStream> = variant
                 .fields
                 .iter()
@@ -533,6 +542,24 @@ fn serialized_size_enum_visitor(
         .map(|variant| {
             let variant_ident = &variant.ident;
             let full_ident = quote! {#cont_ident::#variant_ident};
+
+            // TODO BUGBUG: need to decouple BinarySerialize from NewFuzzed to not hit this case with mixed unit/struct enum
+            if variant.fields.is_empty() {
+                return match visitor_type {
+                    SerializedSizeVisitorType::SerializedSize
+                    | SerializedSizeVisitorType::MinEnumVariantSize => {
+                        quote_spanned! { variant.original.span() =>
+                            #full_ident => {
+                                0
+                            }
+                        }
+                    }
+                    _ => quote_spanned! { variant.original.span() =>
+                        0
+                    },
+                };
+            }
+
             let mut field_identifiers = vec![];
 
             let field_sizes: Vec<TokenStream> = variant

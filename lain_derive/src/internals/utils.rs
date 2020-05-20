@@ -24,7 +24,7 @@ pub(crate) struct FuzzerObjectStructField<'a> {
     pub max: Option<TokenStream>,
     pub ignore: bool,
     pub user_initializer: Option<TokenStream>,
-    pub ignore_chance: f32,
+    pub ignore_chance: f64,
     pub is_bitfield: bool,
     pub weighted: Weighted,
 }
@@ -107,11 +107,9 @@ pub(crate) fn parse_fields(fields: &syn::FieldsNamed) -> Vec<FuzzerObjectStructF
                         }
                         NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "ignore_chance" => {
                             if let syn::Lit::Float(ref f) = m.lit {
-                                field.ignore_chance = f.value() as f32;
-                            } else if let syn::Lit::Int(ref i) = m.lit {
-                                field.ignore_chance = i.value() as f32;
+                                field.ignore_chance = f.value() as f64;
                             } else {
-                                panic!("ignore_chance field should be a f32");
+                                panic!("ignore_chance field should be a f64");
                             }
                         }
                         NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "initializer" => {

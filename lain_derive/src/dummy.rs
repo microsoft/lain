@@ -4,12 +4,7 @@ use crate::internals::attr::unraw;
 use quote::quote;
 
 /// Wraps the code in a dummy const object. See https://github.com/serde-rs/serde/issues/159#issuecomment-214002626
-pub fn wrap_in_const(
-    trait_: &str,
-    ty: &Ident,
-    code: TokenStream,
-) -> TokenStream {
-
+pub fn wrap_in_const(trait_: &str, ty: &Ident, code: TokenStream) -> TokenStream {
     let dummy_const = Ident::new(
         &format!("_IMPL_{}_FOR_{}", trait_, unraw(ty)),
         Span::call_site(),
