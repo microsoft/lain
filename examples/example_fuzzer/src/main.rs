@@ -84,15 +84,8 @@ fn fuzzer_routine<R: Rng>(mutator: &mut Mutator<R>, thread_context: &mut FuzzerT
 
     let packet = match thread_context.last_packet {
         Some(ref mut last_packet) => {
-            if mutator.mode() == MutatorMode::Havoc {
-                last_packet.mutate(mutator, None);
-                last_packet
-            } else {
-                // We want to do fuzzing of every field separately
-                thread_context.scratch_packet = last_packet.clone();
-                thread_context.scratch_packet.mutate(mutator, None);
-                &thread_context.scratch_packet
-            }
+            last_packet.mutate(mutator, None);
+            last_packet
         }
         _ => {
             mutator.begin_new_corpus();

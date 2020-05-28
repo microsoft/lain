@@ -103,7 +103,8 @@ fn mutatable_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream 
     }
 
     quote! {
-        if mutator.mode() == _lain::mutator::MutatorMode::Havoc {
+        // 10% chance to re-generate this field
+        if mutator.gen_chance(0.10) {
             *self = Self::new_fuzzed(mutator, parent_constraints);
             return;
         }

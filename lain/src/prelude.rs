@@ -9,7 +9,7 @@ pub use crate::byteorder::{BigEndian, LittleEndian};
 #[doc(no_inline)]
 pub use crate::log::*;
 #[doc(no_inline)]
-pub use crate::mutator::{Mutator, MutatorMode};
+pub use crate::mutator::{Mutator};
 #[doc(no_inline)]
 pub use crate::traits::*;
 #[doc(no_inline)]

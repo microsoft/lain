@@ -241,7 +241,7 @@ pub fn start_fuzzer<F: 'static, C: 'static, T: 'static + Send + Sync>(
                         return;
                     }
 
-                    mutator.begin_new_iteration();
+                    mutator.random_flags();
 
                     if let Err(_) =
                         (callback)(&mut mutator, &mut context, thread_driver.global_context())

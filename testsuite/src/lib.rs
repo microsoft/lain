@@ -578,60 +578,6 @@ mod test {
     }
 
     #[test]
-    fn test_mutator_switches_modes_properly() {
-        let mut mutator = get_mutator();
-        #[derive(Default, NewFuzzed, Mutatable, BinarySerialize, Clone)]
-        struct S {
-            first: u64,
-            second: u8,
-        }
-
-        let mut instance = S::new_fuzzed(&mut mutator, None);
-        mutator.begin_new_corpus();
-
-        let mut counter = 0usize;
-        loop {
-            println!("{:?}", mutator.mode());
-            instance.mutate(&mut mutator, None);
-            mutator.begin_new_iteration();
-            counter += 1;
-
-            match counter {
-                2078 => assert_eq!(
-                    mutator.mode(),
-                    MutatorMode::WalkingBitFlip {
-                        bits: 63,
-                        current_idx: 1
-                    }
-                ),
-                2079 => assert_eq!(
-                    mutator.mode(),
-                    MutatorMode::WalkingBitFlip {
-                        bits: 64,
-                        current_idx: 0
-                    }
-                ),
-                2085 => assert_eq!(
-                    mutator.mode(),
-                    MutatorMode::InterestingValues { current_idx: 5 }
-                ),
-                2100 => assert_eq!(
-                    mutator.mode(),
-                    MutatorMode::WalkingBitFlip {
-                        bits: 2,
-                        current_idx: 6
-                    }
-                ),
-                2134 => {
-                    assert_eq!(mutator.mode(), MutatorMode::Havoc);
-                    break;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    #[test]
     fn test_string_mutation() {
         // this test mostly ensures that the string generation does not panic
         let mut mutator = get_mutator();

@@ -1,4 +1,4 @@
-use crate::mutator::{Mutator, MutatorMode};
+use crate::mutator::{Mutator};
 use crate::rand::seq::index;
 use crate::rand::Rng;
 use crate::traits::*;
@@ -204,7 +204,7 @@ where
         const CHANCE_TO_RESIZE_VEC: f64 = 0.01;
 
         // 1% chance to resize this vec
-        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
+        if mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             shrink_vec(self, mutator);
         } else {
             // Recreate the constraints so that the min/max types match
@@ -244,7 +244,7 @@ where
             return;
         }
 
-        if mutator.mode() == MutatorMode::Havoc && mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
+        if mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
             if resize_type == VecResizeType::Grow {
                 grow_vec(self, mutator, constraints.and_then(|c| c.max_size));
@@ -327,7 +327,7 @@ where
 
         match *self {
             UnsafeEnum::Invalid(ref mut value) => {
-                mutator.mutate_from_mutation_mode(value);
+                mutator.mutate(value);
             }
             _ => unreachable!(),
         }
@@ -378,7 +378,7 @@ macro_rules! impl_mutatable {
 
                 #[inline(always)]
                 fn mutate<R: Rng>(&mut self, mutator: &mut Mutator<R>, _constraints: Option<&Constraints<Self::RangeType>>) {
-                    mutator.mutate_from_mutation_mode(self);
+                    mutator.mutate(self);
                 }
             }
         )*
@@ -397,7 +397,7 @@ impl Mutatable for i8 {
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         let mut val = *self as u8;
-        mutator.mutate_from_mutation_mode(&mut val);
+        mutator.mutate(&mut val);
         *self = val as i8;
     }
 }
@@ -412,7 +412,7 @@ impl Mutatable for i16 {
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         let mut val = *self as u16;
-        mutator.mutate_from_mutation_mode(&mut val);
+        mutator.mutate(&mut val);
         *self = val as i16;
     }
 }
@@ -427,7 +427,7 @@ impl Mutatable for i32 {
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         let mut val = *self as u32;
-        mutator.mutate_from_mutation_mode(&mut val);
+        mutator.mutate(&mut val);
         *self = val as i32;
     }
 }
@@ -442,7 +442,7 @@ impl Mutatable for i64 {
         _constraints: Option<&Constraints<Self::RangeType>>,
     ) {
         let mut val = *self as u64;
-        mutator.mutate_from_mutation_mode(&mut val);
+        mutator.mutate(&mut val);
         *self = val as i64;
     }
 }
