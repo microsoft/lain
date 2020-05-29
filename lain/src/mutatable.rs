@@ -1,4 +1,4 @@
-use crate::mutator::{Mutator};
+use crate::mutator::Mutator;
 use crate::rand::seq::index;
 use crate::rand::Rng;
 use crate::traits::*;

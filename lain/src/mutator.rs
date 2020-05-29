@@ -46,9 +46,7 @@ pub struct CorpusFuzzingState {
 
 impl Default for CorpusFuzzingState {
     fn default() -> Self {
-        CorpusFuzzingState {
-            fields_fuzzed: 0,
-        }
+        CorpusFuzzingState { fields_fuzzed: 0 }
     }
 }
 
@@ -187,8 +185,9 @@ impl<R: Rng> Mutator<R> {
 
     /// Generates a number in the range from [min, max) (**note**: non-inclusive). Panics if min >= max.
     pub fn gen_range<T, B1>(&mut self, min: B1, max: B1) -> T
-    where T: SampleUniform + std::fmt::Display,
-    B1: SampleBorrow<T>
+    where
+        T: SampleUniform + std::fmt::Display,
+        B1: SampleBorrow<T>
             + std::fmt::Display
             + Add
             + Mul
@@ -295,7 +294,11 @@ impl<R: Rng> Mutator<R> {
     /// Helper function for quitting the recursive mutation early if the target field has already
     /// been mutated.
     pub fn should_early_bail_mutation(&self) -> bool {
-        self.flags.field_count.clone().map(|count| count == self.corpus_state.fields_fuzzed).unwrap_or(false)
+        self.flags
+            .field_count
+            .clone()
+            .map(|count| count == self.corpus_state.fields_fuzzed)
+            .unwrap_or(false)
     }
 
     /// Returns a boolean value indicating whether or not the chance event occurred
