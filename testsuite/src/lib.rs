@@ -873,6 +873,35 @@ mod test {
         Bar::new_fuzzed(&mut mutator, None);
     }
 
+    #[test]
+    fn test_serialized_size_does_not_exceed_constraint() {
+        #[derive(Clone, NewFuzzed, Mutatable, BinarySerialize, Debug)]
+        struct Foo {
+            #[lain(min = 0, max = 1000)]
+            a: Vec<u16>,
+            #[lain(min = 0, max = 1000)]
+            b: Vec<u16>,
+        }
+
+        const MAX_SIZE: usize = 21;
+
+        let mut constraints = Constraints::new();
+        constraints.max_size(MAX_SIZE);
+
+        let mut mutator = get_mutator();
+
+        let mut obj = Foo::new_fuzzed(&mut mutator, Some(&constraints));
+        for i in 0..1000 {
+            obj = Foo::new_fuzzed(&mut mutator, Some(&constraints));
+            assert!(obj.serialized_size() <= MAX_SIZE);
+
+            let prev_obj = obj.clone();
+
+            obj.mutate(&mut mutator, Some(&constraints));
+            assert!(obj.serialized_size() <= MAX_SIZE, "max_size: {}, obj {:?}, prev: {:?}", MAX_SIZE, obj, prev_obj);
+        }
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

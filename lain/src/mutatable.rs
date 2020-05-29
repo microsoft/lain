@@ -40,25 +40,6 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
     mutator: &mut Mutator<R>,
     mut max_size: Option<usize>,
 ) {
-    // We need to take the current size of the vector into consideration
-    if let Some(ref mut max_size) = max_size {
-        // avoid derefing everywhere
-        let mut max = *max_size;
-
-        let current_size = vec.serialized_size();
-        if current_size >= max {
-            return;
-        }
-
-        max -= current_size;
-
-        if max <= 1 || max < T::min_nonzero_elements_size() {
-            return;
-        }
-
-        *max_size = max;
-    }
-
     let resize_count = VecResizeCount::new_fuzzed(mutator, None);
     let mut num_elements = if vec.is_empty() {
         if let Some(ref max_size) = max_size {

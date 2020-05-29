@@ -95,7 +95,7 @@ fn mutatable_body(cont: &Container) -> TokenStream {
 }
 
 fn mutatable_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream {
-    let constraints_prelude = constraints_prelude();
+    let constraints_prelude = mutatable_constraints_prelude();
     let match_arms = mutatable_enum_visitor(variants, cont_ident);
 
     if match_arms.is_empty() {
@@ -146,7 +146,7 @@ fn mutatable_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenSt
 
 fn mutatable_struct(fields: &[Field]) -> TokenStream {
     let mutators = mutatable_struct_visitor(fields);
-    let prelude = constraints_prelude();
+    let prelude = mutatable_constraints_prelude();
 
     if mutators.is_empty() {
         return TokenStream::new();
@@ -713,6 +713,38 @@ fn constraints_prelude() -> TokenStream {
         // println!("after: {:?}", parent_constraints);
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+        if let Some(ref mut max) = max_size {
+            let min_object_size = Self::min_nonzero_elements_size();
+            if min_object_size > *max {
+                warn!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
+                *max = Self::min_nonzero_elements_size();
+            } else {
+                *max -= Self::min_nonzero_elements_size();
+            }
+        }
+    }
+}
+
+fn mutatable_constraints_prelude() -> TokenStream {
+    quote! {
+        // println!("before: {:?}", parent_constraints);
+        // Make a copy of the constraints that will remain immutable for
+        // this function. Here we ensure that the base size of this object has
+        // been accounted for by the caller, which may be an object containing this.
+        let parent_constraints = parent_constraints.and_then(|c| {
+            let mut c = c.clone();
+            if !c.base_object_size_accounted_for {
+                c.base_object_size_accounted_for = true;
+                c.max_size = c.max_size.and_then(|size| Some(size - self.serialized_size()));
+            }
+
+            Some(c)
+        });
+        // println!("after: {:?}", parent_constraints);
+
+        let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
+        // subtract the current object size
+
         if let Some(ref mut max) = max_size {
             let min_object_size = Self::min_nonzero_elements_size();
             if min_object_size > *max {
