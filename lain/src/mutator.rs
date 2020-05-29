@@ -242,6 +242,11 @@ impl<R: Rng> Mutator<R> {
         );
 
         let range = (max - min) + B1::from(1u8).unwrap();
+        
+        if range < B1::from(6u8).unwrap() {
+            return self.gen_range(min, max);
+        }
+
         let one_third_of_range: B1 = range / B1::from(3u8).unwrap();
 
         let zero = B1::from(0u8).unwrap();

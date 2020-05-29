@@ -103,7 +103,7 @@ pub(crate) fn new_fuzzed_helper(input: proc_macro::TokenStream) -> proc_macro::T
                             let ident_string = format!("field_{}", i);
                             let ident = TokenStream::from_str(&ident_string).unwrap();
 
-                            variant_sizes.push(quote_spanned!{field_span => <#field_type>::min_nonzero_element_size()});
+                            variant_sizes.push(quote_spanned!{field_span => <#field_type>::min_nonzero_elements_size()});
 
                             initializer.extend(quote_spanned! { field_span =>
                                 let mut #ident: #field_type = if let Some(ref constraints) = parent_constraints {

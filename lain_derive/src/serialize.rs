@@ -89,11 +89,11 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
                 #lain::log::debug!("getting serialized size of {}", #ident_as_string);
                 let size = #serialized_size;
 
-                let size = if size < Self::min_nonzero_elements_size() {
-                    Self::min_nonzero_elements_size()
-                } else {
-                    size
-                };
+                // let size = if size < Self::min_nonzero_elements_size() {
+                //     Self::min_nonzero_elements_size()
+                // } else {
+                //     size
+                // };
                 #lain::log::debug!("size of {} is 0x{:02X}", #ident_as_string, size);
 
                 return size;
@@ -517,10 +517,10 @@ fn field_serialized_size(
             },
             SerializedSizeVisitorType::MaxDefaultObjectSize => match ty {
                 syn::Type::Path(ref p)
-                    if p.path.segments[0].ident == "Vec" && field.attrs.max().is_some() =>
+                    if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() =>
                 {
-                    let max = field.attrs.max().unwrap();
-                    quote_spanned! { field.original.span() => <#ty>::max_default_object_size() * #max }
+                    let min = field.attrs.min().map(|min| if min.to_string() == "0" { quote!{1} } else { min.clone()}).unwrap_or(quote!{1});
+                    quote_spanned! { field.original.span() => <#ty>::max_default_object_size() * #min }
                 }
                 _ => {
                     quote_spanned! { field.original.span() => (<#ty>::max_default_object_size() ) }

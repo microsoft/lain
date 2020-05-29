@@ -46,12 +46,15 @@ where
         let mut used_size: usize = 0;
         let mut output: Vec<T>;
 
-        if T::min_nonzero_elements_size() == 0 {
+        if T::max_default_object_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return vec![];
         }
 
-        trace!("Generating random Vec with constraints: {:#?}", constraints);
+        trace!(
+            "Generating random Vec with constraints: {:#X?}",
+            constraints
+        );
 
         // if no min/max were supplied, we'll take a conservative approach of 64 elements
         match constraints {
@@ -77,7 +80,7 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = max_size {
-                    max = cmp::min(max, max_size / T::min_nonzero_elements_size());
+                    max = cmp::min(max, max_size / T::max_default_object_size());
                 }
             }
             None => {
@@ -86,6 +89,14 @@ where
                 max_size = None;
                 weight = Weighted::None;
             }
+        }
+
+        if max == 0 {
+            return vec![];
+        }
+
+        if min > max {
+            min = 0;
         }
 
         // If min == max, that means the user probably wants this to be exactly that many elements.
@@ -115,7 +126,7 @@ where
 
             if let Some(ref max_size) = max_size {
                 if used_size + element_serialized_size > *max_size {
-                    return output;
+                    break;
                 } else {
                     used_size += element_serialized_size;
                 }
@@ -145,13 +156,13 @@ where
         let mut used_size: usize = 0;
         let mut output: Vec<T>;
 
-        trace!("Generating random Vec with constraints: {:#?}", constraints);
+        trace!("Generating random Vec with constraints: {:#X?}", constraints);
 
-        if T::min_nonzero_elements_size() == 0 {
+        if T::max_default_object_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return vec![];
         }
-
+        
         // if no min/max were supplied, we'll take a conservative approach of 64 elements
         match constraints {
             Some(constraints) => {
@@ -175,11 +186,7 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-                    max = cmp::min(
-                        max,
-                        (max_size + (T::min_nonzero_elements_size() * min))
-                            / T::min_nonzero_elements_size(),
-                    );
+                    max = cmp::min(max, max_size / T::max_default_object_size());
                 }
             }
             None => {
@@ -188,6 +195,14 @@ where
                 max_size = None;
                 weight = Weighted::None;
             }
+        }
+
+        if max == 0 {
+            return vec![];
+        }
+
+        if min > max {
+            min = 0;
         }
 
         // If min == max, that means the user probably wants this to be exactly that many elements.
@@ -221,9 +236,9 @@ where
             for _i in 0..num_elements {
                 if let Some(ref max_size) = max_size {
                     if used_size + element_serialized_size > *max_size {
-                        return output;
+                        break;
                     } else {
-                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
+                        used_size += element_serialized_size;
                     }
                 }
 
@@ -248,9 +263,9 @@ where
 
                 if let Some(ref max_size) = max_size {
                     if used_size + element_serialized_size > *max_size {
-                        return output;
+                        break;
                     } else {
-                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
+                        used_size += element_serialized_size;
                     }
                 }
 
@@ -745,7 +760,7 @@ macro_rules! impl_new_fuzzed_array {
 
                     if let Some(ref constraints) = constraints {
                        if let Some(temp_max_size) = constraints.max_size {
-                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
+                            if T::max_default_object_size() * $size  > temp_max_size {
                                 warn!("max size provided to array is smaller than the min size of array");
                             }
 
@@ -809,7 +824,7 @@ macro_rules! impl_new_fuzzed_array {
 
                     if let Some(ref constraints) = constraints {
                        if let Some(temp_max_size) = constraints.max_size {
-                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
+                            if T::max_default_object_size() * $size  > temp_max_size {
                                 warn!("max size provided to array is smaller than the min size of array");
                             }
 
