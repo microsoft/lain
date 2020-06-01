@@ -226,7 +226,7 @@ where
 
         // we can grow the vector if we have no size constraint or the max size quota hasn't
         // been fulfilled
-        let can_grow = constraints.map(|c| c.max_size.map(|s| s > 0).unwrap_or(true)).unwrap_or(false);
+        let can_grow = constraints.map(|c| c.max_size.map(|s| s > 0 && s > T::max_default_object_size()).unwrap_or(true)).unwrap_or(false);
 
         if mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);

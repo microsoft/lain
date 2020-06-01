@@ -234,21 +234,25 @@ fn gen_struct_mutate_impl(fields: &[FuzzerObjectStructField]) -> TokenStream {
 
             field_mutation_tokens.extend(quote! {
                 #default_constraints
-                <#ty>::mutate(&mut self.#ident, mutator, constraints.as_ref());
-                if <#ty>::is_variable_size() {
-                    max_size = max_size.map(|max| {
-                        // in case a user didn't appropriately supply a max size constraint (i.e. a max
-                        // size that's smaller than the object's min size), we don't want to panic
-                        let serialized_size = self.#ident.serialized_size();
 
-                        if serialized_size > max {
-                            warn!("Max size provided to object is likely smaller than min object size");
+                // 5% chance that this field does not get mutated
+                if mutator.gen_chance(0.95) {
+                    <#ty>::mutate(&mut self.#ident, mutator, constraints.as_ref());
+                    if <#ty>::is_variable_size() {
+                        max_size = max_size.map(|max| {
+                            // in case a user didn't appropriately supply a max size constraint (i.e. a max
+                            // size that's smaller than the object's min size), we don't want to panic
+                            let serialized_size = self.#ident.serialized_size();
 
-                            0
-                        } else {
-                            max - serialized_size
-                        }
-                    });
+                            if serialized_size > max {
+                                warn!("Max size provided to object is likely smaller than min object size");
+
+                                0
+                            } else {
+                                max - serialized_size
+                            }
+                        });
+                    }
                 }
 
                 if mutator.should_early_bail_mutation() {

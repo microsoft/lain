@@ -108,7 +108,21 @@ fn mutatable_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream 
     quote! {
         // 10% chance to re-generate this field
         if mutator.gen_chance(0.10) {
-            *self = Self::new_fuzzed(mutator, parent_constraints);
+            *self = Self::new_fuzzed(mutator, parent_constraints.and_then(|constraints| {
+                let mut constraints = constraints.clone();
+
+                // If base object size has already been accounted for, that means
+                // the max_size represents the amount of extra data that may be consumed.
+                // We want to give back the size of this object when generating a new instance
+                if constraints.base_object_size_accounted_for {
+                    if let Some(max_size) = constraints.max_size.as_mut() {
+                        *max_size = self.serialized_size() + *max_size;
+                    }
+                }
+
+                Some(constraints)
+            }).as_ref());
+
             return;
         }
 
@@ -594,18 +608,20 @@ fn mutatable_decrement_max_size(field: &Field, value_ident: &TokenStream) -> Tok
     quote! {
         _lain::log::trace!("{} is variable size? {}", #ty_string, <#ty>::is_variable_size());
 
-        if let Some(ref mut max_size) = max_size {
-            // we only subtract off the difference between the object's allocated size
-            // and its min size.
-            let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
+        if mutated {
+            if let Some(ref mut max_size) = max_size {
+                // we only subtract off the difference between the object's allocated size
+                // and its min size.
+                let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
 
-            _lain::log::trace!("subtracing min size from object. type min size 0x{:X}, delta: 0x{:X}", #ty_size, size_delta);
+                _lain::log::trace!("subtracing min size from object. type min size 0x{:X}, delta: 0x{:X}", #ty_size, size_delta);
 
-            // size_delta might be negative in the event that the mutator ignored
-            // the min bound
-            *max_size = ((*max_size as isize) - size_delta) as usize;
-            
-            _lain::log::trace!("max size is now 0x{:X}", *max_size);
+                // size_delta might be negative in the event that the mutator ignored
+                // the min bound
+                *max_size = ((*max_size as isize) - size_delta) as usize;
+                
+                _lain::log::trace!("max size is now 0x{:X}", *max_size);
+            }
         }
     }
 }
@@ -632,8 +648,11 @@ fn field_mutator(
 
     let mutator_stmts = quote! {
         let previous_size = #value_ident.serialized_size();
+        let mutated = mutator.gen_chance(0.95);
 
-        <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
+        if mutated {
+            <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
+        }
 
         if mutator.should_early_bail_mutation() {
             if mutator.should_fixup() {
