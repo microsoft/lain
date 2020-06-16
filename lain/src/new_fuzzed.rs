@@ -649,6 +649,7 @@ impl NewFuzzed for AsciiChar {
 impl NewFuzzed for char {
     type RangeType = u32;
 
+    #[inline(always)]
     fn new_fuzzed<R: crate::rand::Rng>(
         mutator: &mut crate::mutator::Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
@@ -666,7 +667,7 @@ impl NewFuzzed for bool {
     ) -> Self {
         trace!("generating random bool");
 
-        mutator.gen_range(0u8, 2u8) != 0
+        mutator.rng.gen()
     }
 }
 
