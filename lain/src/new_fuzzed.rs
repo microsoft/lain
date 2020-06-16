@@ -46,12 +46,15 @@ where
         let mut used_size: usize = 0;
         let mut output: Vec<T>;
 
-        if T::min_nonzero_elements_size() == 0 {
+        if T::max_default_object_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return vec![];
         }
 
-        trace!("Generating random Vec with constraints: {:#?}", constraints);
+        trace!(
+            "Generating random Vec with constraints: {:#X?}",
+            constraints
+        );
 
         // if no min/max were supplied, we'll take a conservative approach of 64 elements
         match constraints {
@@ -77,7 +80,7 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = max_size {
-                    max = cmp::min(max, max_size / T::min_nonzero_elements_size());
+                    max = cmp::min(max, max_size / T::max_default_object_size());
                 }
             }
             None => {
@@ -86,6 +89,14 @@ where
                 max_size = None;
                 weight = Weighted::None;
             }
+        }
+
+        if max == 0 {
+            return vec![];
+        }
+
+        if min > max {
+            min = 0;
         }
 
         // If min == max, that means the user probably wants this to be exactly that many elements.
@@ -115,7 +126,7 @@ where
 
             if let Some(ref max_size) = max_size {
                 if used_size + element_serialized_size > *max_size {
-                    return output;
+                    break;
                 } else {
                     used_size += element_serialized_size;
                 }
@@ -145,9 +156,12 @@ where
         let mut used_size: usize = 0;
         let mut output: Vec<T>;
 
-        trace!("Generating random Vec with constraints: {:#?}", constraints);
+        trace!(
+            "Generating random Vec with constraints: {:#X?}",
+            constraints
+        );
 
-        if T::min_nonzero_elements_size() == 0 {
+        if T::max_default_object_size() == 0 {
             warn!("Size of element in vec is 0... returning early");
             return vec![];
         }
@@ -175,11 +189,7 @@ where
 
                 max_size = constraints.max_size;
                 if let Some(max_size) = constraints.max_size {
-                    max = cmp::min(
-                        max,
-                        (max_size + (T::min_nonzero_elements_size() * min))
-                            / T::min_nonzero_elements_size(),
-                    );
+                    max = cmp::min(max, max_size / T::max_default_object_size());
                 }
             }
             None => {
@@ -188,6 +198,14 @@ where
                 max_size = None;
                 weight = Weighted::None;
             }
+        }
+
+        if max == 0 {
+            return vec![];
+        }
+
+        if min > max {
+            min = 0;
         }
 
         // If min == max, that means the user probably wants this to be exactly that many elements.
@@ -221,9 +239,9 @@ where
             for _i in 0..num_elements {
                 if let Some(ref max_size) = max_size {
                     if used_size + element_serialized_size > *max_size {
-                        return output;
+                        break;
                     } else {
-                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
+                        used_size += element_serialized_size;
                     }
                 }
 
@@ -248,9 +266,9 @@ where
 
                 if let Some(ref max_size) = max_size {
                     if used_size + element_serialized_size > *max_size {
-                        return output;
+                        break;
                     } else {
-                        used_size += T::min_nonzero_elements_size() - element_serialized_size;
+                        used_size += element_serialized_size;
                     }
                 }
 
@@ -741,27 +759,21 @@ macro_rules! impl_new_fuzzed_array {
                 type RangeType = usize;
 
                 fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    let mut max_size: Option<usize> = None;
-
-                    if let Some(ref constraints) = constraints {
-                       if let Some(temp_max_size) = constraints.max_size {
-                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
-                                warn!("max size provided to array is smaller than the min size of array");
-                            }
-
-                            max_size = Some(temp_max_size / $size)
-                        }
-                    }
+                    let mut per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
 
+                    let constraints = per_item_max_size.as_ref().map(|size| {
+                        let mut constraints = Constraints::new();
+                        constraints.max_size(*size);
+                        constraints.set_base_size_accounted_for();
+
+                        constraints
+                    });
+
                     let mut idx = 0;
-                    let mut element: T = if let Some(max_size) = max_size {
-                        T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
-                    } else {
-                        T::new_fuzzed(mutator, None)
-                    };
+                    let mut element: T = T::new_fuzzed(mutator, constraints.as_ref());
 
                     while idx < $size {
                         unsafe {
@@ -778,20 +790,16 @@ macro_rules! impl_new_fuzzed_array {
                                     }
                                     idx += 1;
                                 }
-
-                                if $size - idx > 0 {
-                                    element = if let Some(max_size) = max_size {
-                                        T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
-                                    } else {
-                                        T::new_fuzzed(mutator, None)
-                                    };
-                                }
                             } else {
-                                element = if let Some(max_size) = max_size {
-                                    T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
-                                } else {
-                                    T::new_fuzzed(mutator, None)
-                                };
+                                let constraints = per_item_max_size.as_ref().map(|size| {
+                                    let mut constraints = Constraints::new();
+                                    constraints.max_size(*size);
+                                    constraints.set_base_size_accounted_for();
+
+                                    constraints
+                                });
+
+                                element = T::new_fuzzed(mutator, constraints.as_ref());
                             }
                         }
                     }
@@ -805,27 +813,21 @@ macro_rules! impl_new_fuzzed_array {
                 default type RangeType = usize;
 
                 default fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    let mut max_size: Option<usize> = None;
-
-                    if let Some(ref constraints) = constraints {
-                       if let Some(temp_max_size) = constraints.max_size {
-                            if T::min_nonzero_elements_size() * $size  > temp_max_size {
-                                warn!("max size provided to array is smaller than the min size of array");
-                            }
-
-                            max_size = Some(temp_max_size / $size)
-                        }
-                    }
+                    let mut per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
 
                     for i in 0..$size {
-                        let element = if let Some(max_size) = max_size {
-                            T::new_fuzzed(mutator, Some(&Constraints::new().max_size(max_size)))
-                        } else {
-                            T::new_fuzzed(mutator, None)
-                        };
+                        let constraints = per_item_max_size.as_ref().map(|size| {
+                            let mut constraints = Constraints::new();
+                            constraints.max_size(*size);
+                            constraints.set_base_size_accounted_for();
+
+                            constraints
+                        });
+                        let element = T::new_fuzzed(mutator, constraints.as_ref());
+
                         unsafe {
                             arr_ptr.offset(i).write(element);
                         }

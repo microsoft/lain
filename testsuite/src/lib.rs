@@ -237,7 +237,6 @@ mod test {
 
         for _i in 0..10000 {
             instance = Foo::new_fuzzed(&mut mutator, None);
-            println!("{:?}", instance);
         }
     }
 
@@ -760,10 +759,7 @@ mod test {
         constraints.max_size(200);
 
         let mut mutator = get_mutator();
-        println!(
-            "{:?}",
-            StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints))
-        );
+        assert!(StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)).serialized_size() < 200);
     }
 
     #[test]
@@ -829,6 +825,10 @@ mod test {
         let s = IncompleteEnum::Variant(0);
 
         let mut output = vec![];
+
+        if output.serialized_size() > 0x1000 {
+            panic!("yeah");
+        }
         s.binary_serialize::<_, BigEndian>(&mut output);
 
         compare_slices(&expected[..], output.as_slice());
@@ -883,6 +883,19 @@ mod test {
             b: Vec<u16>,
         }
 
+        #[derive(Clone, NewFuzzed, Mutatable, BinarySerialize, Debug)]
+        struct Bar {
+            #[lain(min = 0, max = 1000)]
+            foo: Vec<u16>,
+            #[lain(min = 0, max = 1000)]
+            b: Vec<u16>,
+        }
+
+        #[derive(Clone, NewFuzzed, Mutatable, BinarySerialize, Debug)]
+        struct Baz {
+            bar: Vec<Bar>,
+        }
+
         const MAX_SIZE: usize = 21;
 
         let mut constraints = Constraints::new();
@@ -898,7 +911,31 @@ mod test {
             let prev_obj = obj.clone();
 
             obj.mutate(&mut mutator, Some(&constraints));
-            assert!(obj.serialized_size() <= MAX_SIZE, "max_size: {}, obj {:?}, prev: {:?}", MAX_SIZE, obj, prev_obj);
+            assert!(
+                obj.serialized_size() <= MAX_SIZE,
+                "max_size: {}, object_size: {}, obj {:?}, prev: {:?}",
+                MAX_SIZE,
+                obj.serialized_size(),
+                obj,
+                prev_obj
+            );
+        }
+
+        let mut baz = Baz::new_fuzzed(&mut mutator, Some(&constraints));
+        for i in 0..1000 {
+            baz = Baz::new_fuzzed(&mut mutator, Some(&constraints));
+            assert!(baz.serialized_size() <= MAX_SIZE);
+
+            let prev_baz = baz.clone();
+
+            baz.mutate(&mut mutator, Some(&constraints));
+            assert!(
+                baz.serialized_size() <= MAX_SIZE,
+                "max_size: {}, obj {:?}, prev: {:?}",
+                MAX_SIZE,
+                baz,
+                prev_baz
+            );
         }
     }
 

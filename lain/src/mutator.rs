@@ -242,6 +242,11 @@ impl<R: Rng> Mutator<R> {
         );
 
         let range = (max - min) + B1::from(1u8).unwrap();
+
+        if range < B1::from(6u8).unwrap() {
+            return self.gen_range(min, max);
+        }
+
         let one_third_of_range: B1 = range / B1::from(3u8).unwrap();
 
         let zero = B1::from(0u8).unwrap();
@@ -297,7 +302,7 @@ impl<R: Rng> Mutator<R> {
         self.flags
             .field_count
             .clone()
-            .map(|count| count == self.corpus_state.fields_fuzzed)
+            .map(|count| count >= self.corpus_state.fields_fuzzed)
             .unwrap_or(false)
     }
 
@@ -340,5 +345,12 @@ impl<R: Rng> Mutator<R> {
 
         self.flags.all_chances_succeed = self.rng.gen();
         self.flags.always_fixup = self.rng.gen();
+    }
+
+    #[doc(hidden)]
+    /// Internal API method that should not be used by clients. This is exposed
+    /// publicly for usage in proc macro code
+    pub fn increment_fields_fuzzed(&mut self) {
+        self.corpus_state.fields_fuzzed += 1;
     }
 }

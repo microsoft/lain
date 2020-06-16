@@ -23,6 +23,8 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
     let body = mutatable_body(&cont);
     let lain = cont.attrs.lain_path();
 
+    let ident_str = ident.to_string();
+
     let impl_block = quote! {
         #[allow(clippy)]
         #[allow(unknown_lints)]
@@ -34,6 +36,7 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
 
             fn mutate<R: #lain::rand::Rng>(&mut self, mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>)
             {
+                _lain::log::trace!("Mutating {}", #ident_str);
                 #body
             }
         }
@@ -105,7 +108,21 @@ fn mutatable_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream 
     quote! {
         // 10% chance to re-generate this field
         if mutator.gen_chance(0.10) {
-            *self = Self::new_fuzzed(mutator, parent_constraints);
+            *self = Self::new_fuzzed(mutator, parent_constraints.and_then(|constraints| {
+                let mut constraints = constraints.clone();
+
+                // If base object size has already been accounted for, that means
+                // the max_size represents the amount of extra data that may be consumed.
+                // We want to give back the size of this object when generating a new instance
+                if constraints.base_object_size_accounted_for {
+                    if let Some(max_size) = constraints.max_size.as_mut() {
+                        *max_size = self.serialized_size() + *max_size;
+                    }
+                }
+
+                Some(constraints)
+            }).as_ref());
+
             return;
         }
 
@@ -140,6 +157,9 @@ fn mutatable_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenSt
         }
 
         let idx: usize = dist.sample(&mut mutator.rng);
+
+        mutator.increment_fields_fuzzed();
+        
         *self = options[idx]
     }
 }
@@ -154,6 +174,7 @@ fn mutatable_struct(fields: &[Field]) -> TokenStream {
 
     quote! {
         #prelude
+        _lain::log::trace!("Parent constraints are: {:?}", parent_constraints);
 
         #(#mutators)*
 
@@ -346,7 +367,7 @@ fn new_fuzzed_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenS
 
             let chance = ignore_chances[idx];
             // negate gen_chance since it's a chance to *ignore*
-            if chance >= 100.0 || !mutator.gen_chance(chance) {
+            if chance >= 1.0 || !mutator.gen_chance(chance) {
                 break;
             }
         }
@@ -371,6 +392,8 @@ fn new_fuzzed_struct(fields: &[Field], cont_ident: &syn::Ident) -> TokenStream {
         });
     }
 
+    let type_name_string = cont_ident.to_string();
+
     quote! {
         use _lain::rand::seq::index::sample;
 
@@ -378,6 +401,8 @@ fn new_fuzzed_struct(fields: &[Field], cont_ident: &syn::Ident) -> TokenStream {
 
         let mut uninit_struct = std::mem::MaybeUninit::<#cont_ident>::uninit();
         let uninit_struct_ptr = uninit_struct.as_mut_ptr();
+
+        _lain::log::trace!("Generating a new {} with constraints: {:#X?}", #type_name_string, parent_constraints);
 
         if Self::is_variable_size() {
             // this makes for ugly code generation, but better perf
@@ -545,23 +570,60 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let zero_tokens = TokenStream::from_str("0").unwrap();
-    let field_min_items = field.attrs.min().unwrap_or(&zero_tokens);
-    let field_max_items = field.attrs.min().unwrap_or(&zero_tokens);
-    let ty_size = quote! {
-        ((<#ty>::min_nonzero_elements_size() * #field_min_items) as isize)
+    let ty_size =  quote! {
+        (<#ty>::max_default_object_size() as isize)
     };
 
+    let ty_string = quote!{#ty}.to_string();
+
     quote! {
-        if <#ty>::is_variable_size() {
+        _lain::log::trace!("{} is variable size? {}", #ty_string, <#ty>::is_variable_size());
+
+        if let Some(ref mut max_size) = max_size {
+            // we only subtract off the difference between the object's allocated size
+            // and its min size.
+            let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
+
+            _lain::log::trace!("subtracting min size from object. type min size 0x{:X}, delta: 0x{:X}", #ty_size, size_delta);
+
+            // size_delta might be negative in the event that the mutator ignored
+            // the min bound
+            *max_size = ((*max_size as isize) - size_delta) as usize;
+            
+            _lain::log::trace!("max size is now 0x{:X}", *max_size);
+        }
+    }
+}
+
+fn mutatable_decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
+    let ty = field.ty;
+    let _field_ident_string = match field.member {
+        syn::Member::Named(ref ident) => ident.to_string(),
+        syn::Member::Unnamed(ref idx) => idx.index.to_string(),
+    };
+
+    let ty_size =  quote! {
+        previous_size as isize
+    };
+
+    let ty_string = quote!{#ty}.to_string();
+
+    quote! {
+        _lain::log::trace!("{} is variable size? {}", #ty_string, <#ty>::is_variable_size());
+
+        if mutated {
             if let Some(ref mut max_size) = max_size {
                 // we only subtract off the difference between the object's allocated size
                 // and its min size.
                 let size_delta = (#value_ident.serialized_size() as isize) - #ty_size;
 
+                _lain::log::trace!("subtracing min size from object. type min size 0x{:X}, delta: 0x{:X}", #ty_size, size_delta);
+
                 // size_delta might be negative in the event that the mutator ignored
                 // the min bound
                 *max_size = ((*max_size as isize) - size_delta) as usize;
+                
+                _lain::log::trace!("max size is now 0x{:X}", *max_size);
             }
         }
     }
@@ -588,18 +650,23 @@ fn field_mutator(
     };
 
     let mutator_stmts = quote! {
-        <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
+        let previous_size = #value_ident.serialized_size();
+        let mutated = mutator.gen_chance(0.95);
 
-        if mutator.should_early_bail_mutation() {
+        if mutated {
+            <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
+
             if mutator.should_fixup() {
                 <#ty>::fixup(#borrow #value_ident, mutator);
             }
+        }
 
+        if mutator.should_early_bail_mutation() {
             return;
         }
     };
 
-    let inc_max_size = decrement_max_size(&field, &value_ident);
+    let inc_max_size = mutatable_decrement_max_size(&field, &value_ident);
 
     let initializer = quote! {
         #default_constraints
@@ -628,7 +695,7 @@ fn new_fuzzed_unit_enum_visitor(
                 let variant_ident = &variant.ident;
 
                 weights.push(variant.attrs.weight().unwrap_or(1));
-                ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+                ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(1.0));
 
                 Some(quote! {#cont_ident::#variant_ident})
             }
@@ -651,10 +718,11 @@ fn new_fuzzed_enum_visitor(
             if variant.attrs.ignore() {
                 return None;
             }
-            ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+            ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(1.0));
 
             let variant_ident = &variant.ident;
             let full_ident = quote! {#cont_ident::#variant_ident};
+            let full_ident_string = full_ident.to_string();
             let mut field_identifiers = vec![];
 
             // TODO: Add ignoring inner fields
@@ -668,7 +736,7 @@ fn new_fuzzed_enum_visitor(
                         field_initializer(field, "__field");
 
                     field_identifiers.push(quote_spanned! { field.member.span() => #value_ident });
-                    field_ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(100.0));
+                    field_ignore_chances.push(variant.attrs.ignore_chance().unwrap_or(1.0));
 
                     initializer
                 })
@@ -685,6 +753,7 @@ fn new_fuzzed_enum_visitor(
                 quote! {
                     #(#field_initializers)*
 
+                    _lain::log::trace!("Initializing {}", #full_ident_string);
                     let mut value = #full_ident(#(#field_identifiers,)*);
                 }
             };
@@ -700,7 +769,6 @@ fn new_fuzzed_enum_visitor(
 
 fn constraints_prelude() -> TokenStream {
     quote! {
-        // println!("before: {:?}", parent_constraints);
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
@@ -710,16 +778,15 @@ fn constraints_prelude() -> TokenStream {
 
             Some(c)
         });
-        // println!("after: {:?}", parent_constraints);
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
         if let Some(ref mut max) = max_size {
-            let min_object_size = Self::min_nonzero_elements_size();
+            let min_object_size = Self::max_default_object_size();
             if min_object_size > *max {
                 warn!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
-                *max = Self::min_nonzero_elements_size();
+                *max = Self::max_default_object_size();
             } else {
-                *max -= Self::min_nonzero_elements_size();
+                *max -= Self::max_default_object_size();
             }
         }
     }
@@ -727,7 +794,6 @@ fn constraints_prelude() -> TokenStream {
 
 fn mutatable_constraints_prelude() -> TokenStream {
     quote! {
-        // println!("before: {:?}", parent_constraints);
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
@@ -735,24 +801,14 @@ fn mutatable_constraints_prelude() -> TokenStream {
             let mut c = c.clone();
             if !c.base_object_size_accounted_for {
                 c.base_object_size_accounted_for = true;
-                c.max_size = c.max_size.and_then(|size| Some(size - self.serialized_size()));
+                c.max_size = c.max_size.map(|size| {
+                    size - self.serialized_size()
+                });
             }
 
             Some(c)
         });
-        // println!("after: {:?}", parent_constraints);
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
-        // subtract the current object size
-
-        if let Some(ref mut max) = max_size {
-            let min_object_size = Self::min_nonzero_elements_size();
-            if min_object_size > *max {
-                warn!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
-                *max = Self::min_nonzero_elements_size();
-            } else {
-                *max -= Self::min_nonzero_elements_size();
-            }
-        }
     }
 }
