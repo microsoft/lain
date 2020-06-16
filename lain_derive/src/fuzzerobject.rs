@@ -177,6 +177,7 @@ pub(crate) fn gen_mutate_impl(ident: &Ident, data: &Data) -> TokenStream {
 
     quote_spanned! { ident.span() =>
         #[allow(unused)]
+        #[inline(always)]
         fn mutate<R: ::lain::rand::Rng>(&mut self, mutator: &mut ::lain::mutator::Mutator<R>, parent_constraints: Option<&::lain::types::Constraints<u8>>) {
             #mutate_body
 
