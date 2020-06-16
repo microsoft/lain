@@ -56,6 +56,7 @@ pub fn expand_binary_serialize(input: &syn::DeriveInput) -> Result<TokenStream, 
         #[allow(unknown_lints)]
         #[automatically_derived]
         impl #impl_generics #lain::traits::BinarySerialize for #ident #ty_generics #where_clause {
+            #[inline(always)]
             fn binary_serialize<W: std::io::Write, E: #lain::byteorder::ByteOrder>(&self, buffer: &mut W) -> usize {
                 use #lain::traits::SerializedSize;
                 use #lain::byteorder::{LittleEndian, BigEndian, WriteBytesExt};
