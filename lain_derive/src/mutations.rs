@@ -72,7 +72,6 @@ pub fn expand_new_fuzzed(input: &syn::DeriveInput) -> Result<TokenStream, Vec<sy
 
             // structs always have a RangeType of u8 since they shouldn't
             // really use the min/max
-            #[inline(always)]
             fn new_fuzzed<R: #lain::rand::Rng>(mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>) -> Self
             {
                 #body
