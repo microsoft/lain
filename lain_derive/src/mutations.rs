@@ -177,10 +177,6 @@ fn mutatable_struct(fields: &[Field]) -> TokenStream {
         _lain::log::trace!("Parent constraints are: {:?}", parent_constraints);
 
         #(#mutators)*
-
-        if mutator.should_fixup() {
-            self.fixup(mutator);
-        }
     }
 }
 
@@ -287,9 +283,7 @@ fn new_fuzzed_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream
             #i => {
                 #variant
 
-                if mutator.should_fixup() {
-                    value.fixup(mutator);
-                }
+                value.fixup(mutator);
 
                 value
             }
@@ -417,10 +411,7 @@ fn new_fuzzed_struct(fields: &[Field], cont_ident: &syn::Ident) -> TokenStream {
         }
 
         let mut initialized_struct = unsafe { uninit_struct.assume_init() };
-
-        if mutator.should_fixup() {
-            initialized_struct.fixup(mutator);
-        }
+        initialized_struct.fixup(mutator);
 
         initialized_struct
     }
@@ -655,10 +646,6 @@ fn field_mutator(
 
         if mutated {
             <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
-
-            if mutator.should_fixup() {
-                <#ty>::fixup(#borrow #value_ident, mutator);
-            }
         }
 
         if mutator.should_early_bail_mutation() {

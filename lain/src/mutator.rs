@@ -15,10 +15,9 @@ use std::ops::{Add, BitXor, Div, Mul, Sub};
 use serde::{Deserialize, Serialize};
 
 // set these to 0 to disable
-pub const CHANCE_TO_REPEAT_ARRAY_VALUE: f64 = 0.01;
-pub const CHANCE_TO_PICK_INVALID_ENUM: f64 = 0.01;
-pub const CHANCE_TO_IGNORE_MIN_MAX: f64 = 0.01;
-pub const CHANCE_TO_IGNORE_POST_MUTATION: f64 = 0.05;
+pub const CHANCE_TO_REPEAT_ARRAY_VALUE: f64 = 0.05;
+pub const CHANCE_TO_PICK_INVALID_ENUM: f64 = 0.10;
+pub const CHANCE_TO_IGNORE_MIN_MAX: f64 = 0.05;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, NewFuzzed)]
@@ -33,7 +32,6 @@ enum MutatorOperation {
 #[derive(Clone, Debug, Default)]
 struct MutatorFlags {
     field_count: Option<usize>,
-    always_fixup: bool,
     all_chances_succeed: bool,
 }
 
@@ -328,11 +326,6 @@ impl<R: Rng> Mutator<R> {
         self.rng.gen_bool(chance_percentage)
     }
 
-    /// Returns a boolean indicating whether or not post mutation steps should be taken
-    pub fn should_fixup(&mut self) -> bool {
-        self.flags.always_fixup || !self.gen_chance(CHANCE_TO_IGNORE_POST_MUTATION)
-    }
-
     /// Client code should call this to signal to the mutator that a new fuzzer iteration is beginning
     /// and that the mutator should reset internal state.
     pub fn random_flags(&mut self) {
@@ -340,11 +333,10 @@ impl<R: Rng> Mutator<R> {
 
         // each flag has a 10% chance of being active
         if self.gen_chance_ignore_flags(0.10) {
-            self.flags.field_count = Some(self.gen_range(1, 10));
+            self.flags.field_count = Some(self.gen_range(1, 100));
         }
 
         self.flags.all_chances_succeed = self.rng.gen();
-        self.flags.always_fixup = self.rng.gen();
     }
 
     #[doc(hidden)]
@@ -352,5 +344,9 @@ impl<R: Rng> Mutator<R> {
     /// publicly for usage in proc macro code
     pub fn increment_fields_fuzzed(&mut self) {
         self.corpus_state.fields_fuzzed += 1;
+    }
+
+    pub fn rng_mut(&mut self) -> &mut R {
+        &mut self.rng
     }
 }
