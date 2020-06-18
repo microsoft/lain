@@ -1,3 +1,16 @@
+<a name="0.5.1"></a>
+## 0.5.1 (2020-06-18)
+
+
+#### Bug Fixes
+
+* **mutations:**
+  *  change how/when fixups are performed ([f51644e1](https://github.com/microsoft/lain/commit/f51644e1bd86f46586a7b24e26183082f6b33a94))
+  *  revert 1d79b7e0 which inlined generated mutations ([bf7ed1e7](https://github.com/microsoft/lain/commit/bf7ed1e77de5f29bc37ac06a2016b01734478545))
+* **serialization:**  revert 2076d121 which inlined generated serde code ([917c1baa](https://github.com/microsoft/lain/commit/917c1baa7d4a54c5faf404542e7ac3609741ebba))
+
+
+
 <a name="0.5"></a>
 ## 0.5 (2020-06-16)
 
