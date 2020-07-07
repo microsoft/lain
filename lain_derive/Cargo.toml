@@ -11,7 +11,7 @@ license = "MIT"
 include = ["Cargo.toml", "src/**/*.rs",  "README.md", "LICENSE", "crates-io.md"]
 
 [dependencies]
-syn = { version = "0.15", features = ["extra-traits"], default-features = false }
+syn = { version = "0.15", features = ["extra-traits"] }
 quote = "0.6"
 proc-macro2 = "0.4"
 mashup = "0.1"
