@@ -236,8 +236,8 @@ fn gen_struct_mutate_impl(fields: &[FuzzerObjectStructField]) -> TokenStream {
             field_mutation_tokens.extend(quote! {
                 #default_constraints
 
-                // 5% chance that this field does not get mutated
-                if mutator.gen_chance(0.95) {
+                // 25% chance that this field does not get mutated
+                if mutator.gen_chance(0.75) {
                     <#ty>::mutate(&mut self.#ident, mutator, constraints.as_ref());
                     if <#ty>::is_variable_size() {
                         max_size = max_size.map(|max| {

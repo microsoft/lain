@@ -99,7 +99,8 @@ impl<R: Rng> Mutator<R> {
             + Bounded
             + Copy
             + WrappingAdd<Output = T>
-            + WrappingSub<Output = T>,
+            + WrappingSub<Output = T>
+            + DangerousNumber<T>,
     {
         // dirty but needs to be done so we can call self.gen_chance_ignore_flags
         if let Some(count) = self.flags.field_count.clone() {
@@ -109,6 +110,10 @@ impl<R: Rng> Mutator<R> {
             }
 
             self.corpus_state.fields_fuzzed += 1;
+        }
+
+        if self.gen_chance(0.10) {
+            *num = T::select_dangerous_number(&mut self.rng);
         }
 
         let operation = MutatorOperation::new_fuzzed(self, None);
@@ -330,13 +335,13 @@ impl<R: Rng> Mutator<R> {
     /// and that the mutator should reset internal state.
     pub fn random_flags(&mut self) {
         self.flags = MutatorFlags::default();
+        self.corpus_state.reset();
 
-        // each flag has a 10% chance of being active
-        if self.gen_chance_ignore_flags(0.10) {
+        if self.rng.gen_bool(0.95) {
             self.flags.field_count = Some(self.gen_range(1, 100));
         }
 
-        self.flags.all_chances_succeed = self.rng.gen();
+        self.flags.all_chances_succeed = self.rng.gen_bool(0.05);
     }
 
     #[doc(hidden)]

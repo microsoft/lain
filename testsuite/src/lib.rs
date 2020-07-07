@@ -759,7 +759,10 @@ mod test {
         constraints.max_size(200);
 
         let mut mutator = get_mutator();
-        assert!(StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)).serialized_size() < 200);
+        assert!(
+            StructWithFixedSizeVec::new_fuzzed(&mut mutator, Some(&constraints)).serialized_size()
+                < 200
+        );
     }
 
     #[test]

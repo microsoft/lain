@@ -27,6 +27,20 @@ where
     }
 }
 
+impl<T> NewFuzzed for Box<T>
+where
+    T: NewFuzzed,
+{
+    type RangeType = T::RangeType;
+
+    default fn new_fuzzed<R: Rng>(
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    ) -> Box<T> {
+        Box::new(T::new_fuzzed(mutator, constraints))
+    }
+}
+
 impl<T> NewFuzzed for Vec<T>
 where
     T: NewFuzzed + SerializedSize,

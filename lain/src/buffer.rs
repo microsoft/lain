@@ -267,6 +267,16 @@ where
     }
 }
 
+impl<T> BinarySerialize for Box<T>
+where
+    T: BinarySerialize,
+{
+    #[inline(always)]
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        BinarySerialize::binary_serialize::<_, E>(self.as_ref(), buffer)
+    }
+}
+
 macro_rules! impl_binary_serialize {
     ( $($name:ident),* ) => {
         $(

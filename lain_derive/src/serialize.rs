@@ -519,7 +519,17 @@ fn field_serialized_size(
                 syn::Type::Path(ref p)
                     if p.path.segments[0].ident == "Vec" && field.attrs.min().is_some() =>
                 {
-                    let min = field.attrs.min().map(|min| if min.to_string() == "0" { quote!{1} } else { min.clone()}).unwrap_or(quote!{1});
+                    let min = field
+                        .attrs
+                        .min()
+                        .map(|min| {
+                            if min.to_string() == "0" {
+                                quote! {1}
+                            } else {
+                                min.clone()
+                            }
+                        })
+                        .unwrap_or(quote! {1});
                     quote_spanned! { field.original.span() => <#ty>::max_default_object_size() * #min }
                 }
                 _ => {

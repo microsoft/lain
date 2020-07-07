@@ -159,7 +159,7 @@ fn mutatable_unit_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenSt
         let idx: usize = dist.sample(&mut mutator.rng);
 
         mutator.increment_fields_fuzzed();
-        
+
         *self = options[idx]
     }
 }
@@ -172,11 +172,33 @@ fn mutatable_struct(fields: &[Field]) -> TokenStream {
         return TokenStream::new();
     }
 
-    quote! {
-        #prelude
-        _lain::log::trace!("Parent constraints are: {:?}", parent_constraints);
+    let len = mutators.len();
+    let mut match_arms = vec![];
 
-        #(#mutators)*
+    for (i, mutator) in mutators.iter().enumerate() {
+        match_arms.push(quote! {
+            #i => {
+                #mutator
+            }
+        });
+    }
+
+    quote! {
+        use _lain::rand::seq::index::sample;
+
+        #prelude
+
+        if Self::is_variable_size() {
+            // this makes for ugly code generation, but better perf
+            for i in sample(&mut mutator.rng, #len, #len).iter() {
+                match i {
+                    #(#match_arms)*
+                    _ => unreachable!(),
+                }
+            }
+        } else {
+            #(#mutators)*
+        }
     }
 }
 
@@ -189,13 +211,13 @@ fn mutatable_unit_enum_visitor(
     let variants = variants
         .iter()
         .filter_map(|variant| {
-            if variant.attrs.ignore() {
-                None
-            } else {
-                let variant_ident = &variant.ident;
-                weights.push(variant.attrs.weight().unwrap_or(1));
-                Some(quote! {#cont_ident::#variant_ident})
-            }
+            //if variant.attrs.ignore() {
+            //    None
+            //} else {
+            let variant_ident = &variant.ident;
+            weights.push(variant.attrs.weight().unwrap_or(1));
+            Some(quote! {#cont_ident::#variant_ident})
+            //}
         })
         .collect();
 
@@ -206,9 +228,9 @@ fn mutatable_enum_visitor(variants: &[Variant], cont_ident: &syn::Ident) -> Vec<
     let match_arms = variants
         .iter()
         .filter_map(|variant| {
-            if variant.attrs.ignore() {
-                return None;
-            }
+            // if variant.attrs.ignore() {
+            //     return None;
+            // }
 
             let variant_ident = &variant.ident;
             let full_ident = quote! {#cont_ident::#variant_ident};
@@ -561,11 +583,11 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let ty_size =  quote! {
+    let ty_size = quote! {
         (<#ty>::max_default_object_size() as isize)
     };
 
-    let ty_string = quote!{#ty}.to_string();
+    let ty_string = quote! {#ty}.to_string();
 
     quote! {
         _lain::log::trace!("{} is variable size? {}", #ty_string, <#ty>::is_variable_size());
@@ -580,7 +602,7 @@ fn decrement_max_size(field: &Field, value_ident: &TokenStream) -> TokenStream {
             // size_delta might be negative in the event that the mutator ignored
             // the min bound
             *max_size = ((*max_size as isize) - size_delta) as usize;
-            
+
             _lain::log::trace!("max size is now 0x{:X}", *max_size);
         }
     }
@@ -593,11 +615,11 @@ fn mutatable_decrement_max_size(field: &Field, value_ident: &TokenStream) -> Tok
         syn::Member::Unnamed(ref idx) => idx.index.to_string(),
     };
 
-    let ty_size =  quote! {
+    let ty_size = quote! {
         previous_size as isize
     };
 
-    let ty_string = quote!{#ty}.to_string();
+    let ty_string = quote! {#ty}.to_string();
 
     quote! {
         _lain::log::trace!("{} is variable size? {}", #ty_string, <#ty>::is_variable_size());
@@ -613,7 +635,7 @@ fn mutatable_decrement_max_size(field: &Field, value_ident: &TokenStream) -> Tok
                 // size_delta might be negative in the event that the mutator ignored
                 // the min bound
                 *max_size = ((*max_size as isize) - size_delta) as usize;
-                
+
                 _lain::log::trace!("max size is now 0x{:X}", *max_size);
             }
         }
@@ -642,7 +664,7 @@ fn field_mutator(
 
     let mutator_stmts = quote! {
         let previous_size = #value_ident.serialized_size();
-        let mutated = mutator.gen_chance(0.95);
+        let mutated = mutator.gen_chance(0.90);
 
         if mutated {
             <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());

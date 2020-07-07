@@ -226,7 +226,13 @@ where
 
         // we can grow the vector if we have no size constraint or the max size quota hasn't
         // been fulfilled
-        let can_grow = constraints.map(|c| c.max_size.map(|s| s > 0 && s > T::max_default_object_size()).unwrap_or(true)).unwrap_or(false);
+        let can_grow = constraints
+            .map(|c| {
+                c.max_size
+                    .map(|s| s > 0 && s > T::max_default_object_size())
+                    .unwrap_or(true)
+            })
+            .unwrap_or(false);
 
         if mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
@@ -275,7 +281,9 @@ where
 
         // we can grow the vector if we have no size constraint or the max size quota hasn't
         // been fulfilled
-        let can_grow = constraints.map(|c| c.max_size.map(|s| s > 0).unwrap_or(true)).unwrap_or(false);
+        let can_grow = constraints
+            .map(|c| c.max_size.map(|s| s > 0).unwrap_or(true))
+            .unwrap_or(false);
 
         if mutator.gen_chance(CHANCE_TO_RESIZE_VEC) {
             let resize_type = VecResizeType::new_fuzzed(mutator, None);
@@ -307,7 +315,7 @@ where
 impl<T> Mutatable for [T]
 where
     T: Mutatable + SerializedSize,
-    T::RangeType: Clone
+    T::RangeType: Clone,
 {
     type RangeType = T::RangeType;
 
@@ -321,8 +329,7 @@ where
                 None
             } else {
                 let mut new_constraints = Constraints::new();
-                new_constraints.base_object_size_accounted_for =
-                    c.base_object_size_accounted_for;
+                new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
                 new_constraints.max_size = c.max_size;
 
                 Some(new_constraints)
@@ -331,7 +338,8 @@ where
 
         // Check if we can even mutate this item
         if let Some(max_size) = constraints.as_ref().map(|c| c.max_size).flatten().clone() {
-            if T::min_nonzero_elements_size() < max_size || T::max_default_object_size() > max_size {
+            if T::min_nonzero_elements_size() < max_size || T::max_default_object_size() > max_size
+            {
                 return;
             }
         }
@@ -361,8 +369,7 @@ where
                 None
             } else {
                 let mut new_constraints = Constraints::new();
-                new_constraints.base_object_size_accounted_for =
-                    c.base_object_size_accounted_for;
+                new_constraints.base_object_size_accounted_for = c.base_object_size_accounted_for;
                 new_constraints.max_size = c.max_size;
 
                 Some(new_constraints)
@@ -387,7 +394,7 @@ where
 
                         T::mutate(item, mutator, parent_constraints.as_ref());
                         if item.serialized_size() > *max_size {
-                            // the mutated object is too large -- 
+                            // the mutated object is too large --
                             *item = prev_obj
                         } else {
                             continue;
@@ -639,6 +646,21 @@ where
                 }
             }
         }
+    }
+}
+
+impl<T> Mutatable for Box<T>
+where
+    T: Mutatable + NewFuzzed<RangeType = <T as Mutatable>::RangeType>,
+{
+    type RangeType = <T as Mutatable>::RangeType;
+
+    fn mutate<R: Rng>(
+        &mut self,
+        mutator: &mut Mutator<R>,
+        constraints: Option<&Constraints<Self::RangeType>>,
+    ) {
+        self.as_mut().mutate(mutator, constraints);
     }
 }
 
