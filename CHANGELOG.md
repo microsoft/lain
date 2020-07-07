@@ -1,3 +1,13 @@
+<a name="0.5.2"></a>
+## 0.5.2 (2020-07-07)
+
+
+#### Features
+
+* **mutations:**  add support for Box<T> ([d6a2cc76](https://github.com/microsoft/lain/commit/d6a2cc76a3bffdb9719c9a385be33f4e29f70769))
+
+
+
 <a name="0.5.1"></a>
 ## 0.5.1 (2020-06-18)
 
