@@ -1,3 +1,9 @@
+<a name="0.5.3"></a>
+## 0.5.3 (2020-11-09)
+
+* Fix some general bugs with resizing `Vec<T>`
+
+
 <a name="0.5.2"></a>
 ## 0.5.2 (2020-07-07)
 
