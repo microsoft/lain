@@ -100,12 +100,12 @@ impl<R: Rng> Mutator<R> {
             + Copy
             + WrappingAdd<Output = T>
             + WrappingSub<Output = T>
-            + DangerousNumber<T>,
+            + DangerousNumber<T>
+            + std::fmt::Debug,
     {
         // dirty but needs to be done so we can call self.gen_chance_ignore_flags
         if let Some(count) = self.flags.field_count.clone() {
-            // 75% chance to ignore this field
-            if self.corpus_state.fields_fuzzed == count || self.gen_chance_ignore_flags(0.75) {
+            if self.corpus_state.fields_fuzzed == count {
                 return;
             }
 
@@ -114,6 +114,7 @@ impl<R: Rng> Mutator<R> {
 
         if self.gen_chance(0.10) {
             *num = T::select_dangerous_number(&mut self.rng);
+            return;
         }
 
         let operation = MutatorOperation::new_fuzzed(self, None);
@@ -319,15 +320,6 @@ impl<R: Rng> Mutator<R> {
             return true;
         }
 
-        if self.flags.all_chances_succeed {
-            return true;
-        }
-
-        self.gen_chance_ignore_flags(chance_percentage)
-    }
-
-    /// Different implementation of gen_chance that ignores the current flags
-    fn gen_chance_ignore_flags(&mut self, chance_percentage: f64) -> bool {
         self.rng.gen_bool(chance_percentage)
     }
 
@@ -340,8 +332,6 @@ impl<R: Rng> Mutator<R> {
         if self.rng.gen_bool(0.95) {
             self.flags.field_count = Some(self.gen_range(1, 100));
         }
-
-        self.flags.all_chances_succeed = self.rng.gen_bool(0.05);
     }
 
     #[doc(hidden)]

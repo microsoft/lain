@@ -42,11 +42,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
 ) {
     let resize_count = VecResizeCount::new_fuzzed(mutator, None);
     let mut num_elements = if vec.is_empty() {
-        if let Some(ref max_size) = max_size {
-            mutator.gen_range(1, (*max_size / T::max_default_object_size()) + 1)
-        } else {
-            mutator.gen_range(1, 9)
-        }
+        mutator.gen_range(1, 9)
     } else {
         match resize_count {
             VecResizeCount::Quarter => vec.len() / 4,
@@ -54,18 +50,14 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
             VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
             VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
             VecResizeCount::AllBytes => {
-                if let Some(ref max_size) = max_size {
-                    mutator.gen_range(1, (*max_size / T::max_default_object_size()) + 1)
-                } else {
-                    mutator.gen_range(1, vec.len() + 1)
-                }
+                mutator.gen_range(1, vec.len() + 1)
             }
         }
     };
 
     // If we were given a size constraint, we need to respect it
-    if let Some(ref mut max_size) = max_size {
-        num_elements = min(num_elements, *max_size / T::max_default_object_size());
+    if let Some(max_size) = max_size.clone() {
+        num_elements = min(num_elements, max_size / T::max_default_object_size());
     }
 
     if num_elements == 0 {
@@ -78,12 +70,12 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
             // instead allocate a new vec, then extend it with the previous one
             let mut new_vec = Vec::with_capacity(num_elements);
             for _i in 0..num_elements {
-                let constraints = max_size.and_then(|max_size| {
+                let constraints = max_size.map(|max_size| {
                     let mut c = Constraints::new();
                     c.max_size(max_size);
                     c.base_object_size_accounted_for = true;
 
-                    Some(c)
+                    c
                 });
 
                 let element = T::new_fuzzed(mutator, constraints.as_ref());
@@ -106,12 +98,12 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
         }
         VecResizeDirection::FromEnd => {
             for _i in 0..num_elements {
-                let constraints = max_size.and_then(|max_size| {
+                let constraints = max_size.map(|max_size| {
                     let mut c = Constraints::new();
                     c.max_size(max_size);
                     c.base_object_size_accounted_for = true;
 
-                    Some(c)
+                    c
                 });
 
                 let element = T::new_fuzzed(mutator, constraints.as_ref());

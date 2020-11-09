@@ -942,6 +942,43 @@ mod test {
         }
     }
 
+    #[test]
+    fn mutatable_object_changes_when_mutate_called() {
+        #[derive(
+            Debug, PartialEq, Mutatable, Eq, Copy, Clone, NewFuzzed, BinarySerialize, ToPrimitiveU8,
+        )]
+        #[repr(u8)]
+        enum Foo {
+            A = 1,
+            B = 2,
+        }
+
+        #[derive(Debug, PartialEq, Mutatable, Eq, Copy, Clone, NewFuzzed, BinarySerialize)]
+        enum Baz {
+            A(u8),
+            B(u64),
+        }
+
+        #[derive(Clone, Debug, Mutatable, PartialEq, Eq, NewFuzzed, BinarySerialize)]
+        struct Bar {
+            foo: Foo,
+            other: u64,
+            baz: Baz,
+        }
+
+        let mut mutator = get_mutator();
+        let mut obj = Bar::new_fuzzed(&mut mutator, None);
+
+        // this breaks at 72 iterations which is fine. would break at a different iteration
+        // with a different seed
+        for i in 0..50 {
+            let prev_obj = obj.clone();
+            obj.mutate(&mut mutator, None);
+
+            assert_ne!(obj, prev_obj);
+        }
+    }
+
     fn compare_slices(expected: &[u8], actual: &[u8]) {
         assert_eq!(actual.len(), expected.len());
 

@@ -37,7 +37,14 @@ pub fn expand_mutatable(input: &syn::DeriveInput) -> Result<TokenStream, Vec<syn
             fn mutate<R: #lain::rand::Rng>(&mut self, mutator: &mut #lain::mutator::Mutator<R>, parent_constraints: Option<&#lain::types::Constraints<Self::RangeType>>)
             {
                 _lain::log::trace!("Mutating {}", #ident_str);
-                #body
+
+                {
+                    #body
+                };
+
+                if mutator.gen_chance(0.10) {
+                    self.fixup(mutator);
+                }
             }
         }
     };
@@ -321,7 +328,7 @@ fn new_fuzzed_enum(variants: &[Variant], cont_ident: &syn::Ident) -> TokenStream
 
         _lain::lazy_static::lazy_static! {
             static ref dist: _lain::rand::distributions::WeightedIndex<u64> =
-                _lain::rand::distributions::WeightedIndex::new(weights.iter()).unwrap();
+                _lain::rand::distributions::WeightedIndex::new(&weights).unwrap();
         }
 
         #constraints_prelude
@@ -664,7 +671,7 @@ fn field_mutator(
 
     let mutator_stmts = quote! {
         let previous_size = #value_ident.serialized_size();
-        let mutated = mutator.gen_chance(0.90);
+        let mutated = mutator.gen_chance(0.98);
 
         if mutated {
             <#ty>::mutate(#borrow #value_ident, mutator, constraints.as_ref());
