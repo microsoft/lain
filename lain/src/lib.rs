@@ -116,8 +116,6 @@ pub use lain_derive::*;
 
 #[macro_use]
 pub extern crate log;
-#[macro_use]
-extern crate mashup;
 
 #[doc(hidden)]
 pub mod buffer;

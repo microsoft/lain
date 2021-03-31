@@ -1,6 +1,7 @@
 use crate::traits::*;
 use crate::types::UnsafeEnum;
 use byteorder::{ByteOrder, WriteBytesExt};
+use paste::paste;
 use std::io::Write;
 
 /// Default implementation of SerializedSize for slices of items. This runs in O(n) complexity since
@@ -201,6 +202,16 @@ where
     }
 }
 
+impl<T, const N: usize> BinarySerialize for [T; N]
+where
+    T: BinarySerialize,
+{
+    #[inline(always)]
+    fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
+        self.as_ref().binary_serialize::<W, E>(buffer)
+    }
+}
+
 impl<T, I> BinarySerialize for UnsafeEnum<T, I>
 where
     T: BinarySerialize,
@@ -283,14 +294,10 @@ macro_rules! impl_binary_serialize {
             impl BinarySerialize for $name {
                 #[inline(always)]
                 fn binary_serialize<W: Write, E: ByteOrder>(&self, buffer: &mut W) -> usize {
-                    // need to use mashup here to do write_(u8|u16|...) since you can't concat
+                    // need to use paste here to do write_(u8|u16|...) since you can't concat
                     // idents otherwise
-                    mashup! {
-                        m["method_name"] = write_ $name;
-                    }
-
-                    m! {
-                        buffer."method_name"::<E>(*self as $name).unwrap();
+                    paste! {
+                        buffer.[<write_ $name>]::<E>(*self as $name).unwrap();
                     }
                     std::mem::size_of::<$name>()
                 }
