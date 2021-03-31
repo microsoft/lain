@@ -99,9 +99,7 @@
 //! comments.
 
 #![feature(specialization)]
-
-// TODO: Uncomment once const generics are more stable
-// #![feature(const_generics)]
+#![feature(min_const_generics)]
 
 extern crate num;
 extern crate num_derive;
@@ -151,7 +149,7 @@ pub fn hexdump(data: &[u8]) -> String {
 
         ret += &format!(" {:02X}", b);
         // this is the printable ASCII range
-        if *b > 0x21 && *b != 0x7f {
+        if *b >= 0x20 && *b <= 0x7f {
             ascii.push(*b as char);
         } else {
             ascii.push('.');
@@ -160,7 +158,7 @@ pub fn hexdump(data: &[u8]) -> String {
 
     if data.len() % 16 != 0 {
         for _i in 0..16 - (data.len() % 16) {
-            ret += &format!("   ");
+            ret += " ";
         }
     }
 
