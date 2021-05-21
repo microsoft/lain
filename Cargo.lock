@@ -238,7 +238,7 @@ checksum = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
 
 [[package]]
 name = "lain"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "byteorder",
  "field-offset",
@@ -255,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "lain_derive"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "byteorder",
  "log",

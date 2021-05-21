@@ -788,11 +788,11 @@ fn constraints_prelude() -> TokenStream {
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
-        let parent_constraints = parent_constraints.and_then(|c| {
+        let parent_constraints = parent_constraints.map(|c| {
             let mut c = c.clone();
             c.account_for_base_object_size::<Self>();
 
-            Some(c)
+            c
         });
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);
@@ -802,7 +802,7 @@ fn constraints_prelude() -> TokenStream {
                 warn!("Cannot construct object with given max_size constraints. Object min size is 0x{:X}, max size constraint is 0x{:X}", min_object_size, *max);
                 *max = Self::max_default_object_size();
             } else {
-                *max -= Self::max_default_object_size();
+                *max = max.saturating_sub(Self::max_default_object_size());
             }
         }
     }
@@ -813,16 +813,16 @@ fn mutatable_constraints_prelude() -> TokenStream {
         // Make a copy of the constraints that will remain immutable for
         // this function. Here we ensure that the base size of this object has
         // been accounted for by the caller, which may be an object containing this.
-        let parent_constraints = parent_constraints.and_then(|c| {
+        let parent_constraints = parent_constraints.map(|c| {
             let mut c = c.clone();
             if !c.base_object_size_accounted_for {
                 c.base_object_size_accounted_for = true;
                 c.max_size = c.max_size.map(|size| {
-                    size - self.serialized_size()
+                    size.saturating_sub(self.serialized_size())
                 });
             }
 
-            Some(c)
+            c
         });
 
         let mut max_size = parent_constraints.as_ref().and_then(|c| c.max_size);

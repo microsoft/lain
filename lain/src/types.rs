@@ -163,7 +163,7 @@ impl<T: Bounded + Debug> Constraints<T> {
                     panic!("minimum base object size is larger than the desired maximum output size (required at least: 0x{:X}, max: 0x{:X}). Check to ensure your output buffer for this object is larger enough", U::max_default_object_size(), *max_size);
                 }
 
-                *max_size -= U::max_default_object_size();
+                *max_size = max_size.saturating_sub(U::max_default_object_size());
             }
 
             self.base_object_size_accounted_for = true;
