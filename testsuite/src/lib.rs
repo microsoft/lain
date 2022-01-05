@@ -997,7 +997,7 @@ mod test {
     }
 
     fn get_mutator() -> Mutator<SmallRng> {
-        let rng = SmallRng::from_seed([1u8; 16]);
+        let rng = SmallRng::from_seed([1u8; 32]);
 
         return Mutator::new(rng);
     }

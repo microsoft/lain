@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use crate::rand::distributions::uniform::{SampleBorrow, SampleUniform};
+use crate::rand::distributions::uniform::SampleUniform;
 use crate::traits::*;
 use crate::types::*;
 use num::{Bounded, NumCast};
@@ -133,7 +133,7 @@ impl<R: Rng> Mutator<R> {
         T: BitXor<Output = T> + Add<Output = T> + Sub<Output = T> + NumCast + Copy,
     {
         let num_bits = (std::mem::size_of::<T>() * 8) as u8;
-        let idx: u8 = self.rng.gen_range(0, num_bits);
+        let idx: u8 = self.rng.gen_range(0..num_bits);
 
         trace!("xoring bit {}", idx);
 
@@ -147,7 +147,7 @@ impl<R: Rng> Mutator<R> {
         T: BitXor<Output = T> + Add<Output = T> + Sub<Output = T> + NumCast + Copy,
     {
         let num_bits = (std::mem::size_of::<T>() * 8) as u8;
-        let bits_to_flip = self.rng.gen_range(1, num_bits + 1) as usize;
+        let bits_to_flip = self.rng.gen_range(1..=num_bits) as usize;
 
         // 64 is chosen here as it's the the max primitive size (in bits) that we support
         // we choose to do this approach over a vec to avoid an allocation
@@ -176,9 +176,9 @@ impl<R: Rng> Mutator<R> {
             + WrappingAdd<Output = T>
             + WrappingSub<Output = T>,
     {
-        let added_num: i64 = self.rng.gen_range(1, 0x10);
+        let added_num: i64 = self.rng.gen_range(1..0x10);
 
-        if self.rng.gen_range(0, 2) == 0 {
+        if self.rng.gen_range(0..=1) == 0 {
             trace!("adding {}", added_num);
             *num = num.wrapping_add(&num::cast(added_num).unwrap());
         } else {
@@ -188,43 +188,34 @@ impl<R: Rng> Mutator<R> {
     }
 
     /// Generates a number in the range from [min, max) (**note**: non-inclusive). Panics if min >= max.
-    pub fn gen_range<T, B1>(&mut self, min: B1, max: B1) -> T
+    pub fn gen_range<T>(&mut self, min: T, max: T) -> T
     where
-        T: SampleUniform + std::fmt::Display,
-        B1: SampleBorrow<T>
-            + std::fmt::Display
-            + Add
-            + Mul
-            + NumCast
-            + Sub
-            + PartialEq
-            + PartialOrd,
+        T: SampleUniform + PartialOrd + std::fmt::Display,
     {
         if min >= max {
             panic!("cannot gen number where min ({}) >= max ({})", min, max);
         }
         trace!("generating number between {} and {}", &min, &max);
-        let num = self.rng.gen_range(min, max);
+        let num = self.rng.gen_range(min..max);
         trace!("got {}", num);
 
         num
     }
 
     /// Generates a number weighted to one end of the interval
-    pub fn gen_weighted_range<T, B1>(&mut self, min: B1, max: B1, weighted: Weighted) -> T
+    pub fn gen_weighted_range<T>(&mut self, min: T, max: T, weighted: Weighted) -> T
     where
-        T: SampleUniform + std::fmt::Display + NumCast,
-        B1: SampleBorrow<T>
+        T: SampleUniform
             + std::fmt::Display
             + std::fmt::Debug
-            + Add<Output = B1>
-            + Mul<Output = B1>
-            + NumCast
-            + Sub<Output = B1>
             + PartialEq
             + PartialOrd
             + Copy
-            + Div<Output = B1>,
+            + NumCast
+            + Add<Output = T>
+            + Mul<Output = T>
+            + Sub<Output = T>
+            + Div<Output = T>,
     {
         use crate::rand::distributions::{Distribution, WeightedIndex};
 
@@ -245,15 +236,15 @@ impl<R: Rng> Mutator<R> {
             weighted
         );
 
-        let range = (max - min) + B1::from(1u8).unwrap();
+        let range = (max - min) + T::from(1u8).unwrap();
 
-        if range < B1::from(6u8).unwrap() {
+        if range < T::from(6u8).unwrap() {
             return self.gen_range(min, max);
         }
 
-        let one_third_of_range: B1 = range / B1::from(3u8).unwrap();
+        let one_third_of_range: T = range / T::from(3u8).unwrap();
 
-        let zero = B1::from(0u8).unwrap();
+        let zero = T::from(0u8).unwrap();
 
         let mut slices = [
             ((zero.clone(), zero.clone()), 0u8),
@@ -262,7 +253,7 @@ impl<R: Rng> Mutator<R> {
         ];
 
         for i in 0..3 {
-            let slice_index = B1::from(i).unwrap();
+            let slice_index = T::from(i).unwrap();
             let min = min + (slice_index * one_third_of_range);
             let max = min + one_third_of_range;
 
@@ -293,7 +284,7 @@ impl<R: Rng> Mutator<R> {
         let bounds = slices[subslice_index].0;
         trace!("subslice has bounds {:?}", bounds);
 
-        let num = self.rng.gen_range(bounds.0, bounds.1);
+        let num = self.rng.gen_range(bounds.0..bounds.1);
 
         trace!("got {}", num);
 
