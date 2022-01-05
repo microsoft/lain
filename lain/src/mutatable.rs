@@ -49,9 +49,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
             VecResizeCount::Half => vec.len() / 2,
             VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
             VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
-            VecResizeCount::AllBytes => {
-                mutator.gen_range(1, vec.len() + 1)
-            }
+            VecResizeCount::AllBytes => mutator.gen_range(1, vec.len() + 1),
         }
     };
 
@@ -316,7 +314,7 @@ where
         mutator: &mut Mutator<R>,
         constraints: Option<&Constraints<Self::RangeType>>,
     ) {
-        let mut constraints = constraints.and_then(|c| {
+        let constraints = constraints.and_then(|c| {
             if c.max_size.is_none() {
                 None
             } else {
@@ -632,7 +630,7 @@ where
             }
             None => {
                 if mutator.gen_chance(CHANCE_TO_FLIP_OPTION_STATE) {
-                    let mut new_item = T::new_fuzzed(mutator, constraints);
+                    let new_item = T::new_fuzzed(mutator, constraints);
 
                     *self = Some(new_item);
                 }

@@ -52,7 +52,7 @@ fn bench_new_fuzzed_1000(c: &mut Criterion) {
     c.bench(
         function_name.as_ref(),
         Benchmark::new("fuzz", move |b| {
-            let mut mutator = Mutator::new(lain::rand::rngs::SmallRng::from_seed([0u8; 16]));
+            let mut mutator = Mutator::new(lain::rand::rngs::SmallRng::from_seed([0u8; 32]));
             b.iter(|| {
                 let s = NestedStruct::new_fuzzed(&mut mutator, None);
                 black_box(s);
@@ -69,8 +69,8 @@ fn bench_in_place_mutation(c: &mut Criterion) {
     c.bench(
         function_name.as_ref(),
         Benchmark::new("fuzz", move |b| {
-            let mut mutator = Mutator::new(lain::rand::rngs::SmallRng::from_seed([0u8; 16]));
-            let mut s = NestedStruct::new_fuzzed(&mut mutator, None);
+            let mut mutator = Mutator::new(lain::rand::rngs::SmallRng::from_seed([0u8; 32]));
+            let s = NestedStruct::new_fuzzed(&mut mutator, None);
             b.iter(|| {
                 let mut s = s.clone();
                 let state = mutator.get_corpus_state();
