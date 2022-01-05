@@ -63,7 +63,7 @@ macro_rules! dangerous_number {
     ( $ty:ident, $nums:ident ) => {
         impl DangerousNumber<$ty> for $ty {
             fn select_dangerous_number<R: Rng>(rng: &mut R) -> $ty {
-                return $nums[rng.gen_range(0, $nums.len())] as $ty;
+                return $nums[rng.gen_range(0..$nums.len())] as $ty;
             }
 
             fn dangerous_number_at_index(idx: usize) -> $ty {
