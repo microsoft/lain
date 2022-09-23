@@ -49,9 +49,7 @@ fn grow_vec<T: NewFuzzed + SerializedSize, R: Rng>(
             VecResizeCount::Half => vec.len() / 2,
             VecResizeCount::ThreeQuarters => vec.len() - (vec.len() / 4),
             VecResizeCount::FixedBytes => mutator.gen_range(1, 9),
-            VecResizeCount::AllBytes => {
-                mutator.gen_range(1, vec.len() + 1)
-            }
+            VecResizeCount::AllBytes => mutator.gen_range(1, vec.len() + 1),
         }
     };
 
