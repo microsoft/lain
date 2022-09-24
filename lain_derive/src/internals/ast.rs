@@ -137,7 +137,7 @@ fn fields_from_ast<'a>(cx: &Ctxt, fields: &'a Punctuated<syn::Field, Token![,]>)
             bitfield_bits += bits;
 
             let bits_in_type: usize;
-            
+
             let bitfield_type = field.attrs.bitfield_type().unwrap_or(&field.ty);
             if is_primitive_type(bitfield_type, "u8") {
                 bits_in_type = 8
