@@ -1,5 +1,5 @@
 # NOTE: As of September 2022, this repository is no longer maintained. 
-To continue using `lain`, please use this `lain` [repository](https://github.com/landaire/lain) at https://github.com/landaire/lain.
+To continue using `lain`, please use the `lain` [repository](https://github.com/landaire/lain) at https://github.com/landaire/lain.
 
 # lain
 
