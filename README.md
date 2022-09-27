@@ -1,3 +1,6 @@
+# NOTE: As of September 2022, this repository is no longer maintained. 
+To continue using `lain`, please use this `lain` [repository](https://github.com/landaire/lain) at https://github.com/landaire/lain.
+
 # lain
 
 This crate provides functionality one may find useful while developing a fuzzer. A recent
@@ -84,6 +87,8 @@ mutated messages to the server and utilizes the `Driver` object to manage fuzzer
 state.
 
 ## Contributing
+
+**This repo is no longer maintained, and therefore is not accepting new contributions.**
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to
 a Contributor License Agreement (CLA) declaring that you have the right to, and actually do,
