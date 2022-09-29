@@ -232,11 +232,10 @@ mod test {
             b: u8,
         }
 
-        let mut instance;
         let mut mutator = get_mutator();
 
         for _i in 0..10000 {
-            instance = Foo::new_fuzzed(&mut mutator, None);
+            Foo::new_fuzzed(&mut mutator, None);
         }
     }
 
@@ -792,7 +791,7 @@ mod test {
             b: u32,
         }
 
-        let mut s = IncompleteBitfield { a: 0, b: 1 };
+        let s = IncompleteBitfield { a: 0, b: 1 };
 
         assert_eq!(IncompleteBitfield::min_nonzero_elements_size(), 4);
 
@@ -906,8 +905,8 @@ mod test {
 
         let mut mutator = get_mutator();
 
-        let mut obj = Foo::new_fuzzed(&mut mutator, Some(&constraints));
-        for i in 0..1000 {
+        let mut obj;
+        for _i in 0..1000 {
             obj = Foo::new_fuzzed(&mut mutator, Some(&constraints));
             assert!(obj.serialized_size() <= MAX_SIZE);
 
@@ -924,8 +923,8 @@ mod test {
             );
         }
 
-        let mut baz = Baz::new_fuzzed(&mut mutator, Some(&constraints));
-        for i in 0..1000 {
+        let mut baz;
+        for _i in 0..1000 {
             baz = Baz::new_fuzzed(&mut mutator, Some(&constraints));
             assert!(baz.serialized_size() <= MAX_SIZE);
 
@@ -971,7 +970,7 @@ mod test {
 
         // this breaks at 72 iterations which is fine. would break at a different iteration
         // with a different seed
-        for i in 0..50 {
+        for _i in 0..50 {
             let prev_obj = obj.clone();
             obj.mutate(&mut mutator, None);
 

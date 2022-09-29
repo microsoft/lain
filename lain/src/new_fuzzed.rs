@@ -774,7 +774,7 @@ macro_rules! impl_new_fuzzed_array {
                 type RangeType = usize;
 
                 fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    let mut per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
+                    let per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;
@@ -828,7 +828,7 @@ macro_rules! impl_new_fuzzed_array {
                 default type RangeType = usize;
 
                 default fn new_fuzzed<R: Rng>(mutator: &mut Mutator<R>, constraints: Option<&Constraints<Self::RangeType>>) -> [T; $size] {
-                    let mut per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
+                    let per_item_max_size: Option<usize> = constraints.and_then(|c| c.max_size.as_ref().and_then(|size| Some(*size / $size)));
 
                     let mut output: MaybeUninit<[T; $size]> = MaybeUninit::uninit();
                     let arr_ptr = output.as_mut_ptr() as *mut T;

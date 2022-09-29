@@ -99,7 +99,6 @@
 //! comments.
 
 #![feature(specialization)]
-#![feature(min_const_generics)]
 
 extern crate num;
 extern crate num_derive;
